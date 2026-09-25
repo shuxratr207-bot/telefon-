@@ -1,0 +1,61 @@
+import express from 'express';
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import apiRouter from './src/server/routes.ts';
+import { connectMongo } from './src/server/db.ts';
+
+dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+async function startServer() {
+  const app = express();
+  const PORT = Number(process.env.PORT || 3000);
+
+  // Body parsing
+  app.use(express.json({ limit: '10mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+  // Connect to MongoDB or initiate fail-safe store
+  await connectMongo();
+
+  // Mount API router
+  app.use('/api', apiRouter);
+
+  // Health check
+  app.get('/api/health', (_req, res) => {
+    res.json({
+      status: 'ok',
+      service: 'NOVA MOBILE API',
+      timestamp: new Date().toISOString(),
+    });
+  });
+
+  // Client handling
+  if (process.env.NODE_ENV === 'production') {
+    const distPath = path.resolve(__dirname, 'dist');
+    app.use(express.static(distPath));
+    app.get('*', (_req, res) => {
+      res.sendFile(path.resolve(distPath, 'index.html'));
+    });
+  } else {
+    const { createServer: createViteServer } = await import('vite');
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: 'spa',
+    });
+    app.use(vite.middlewares);
+  }
+
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`[NOVA MOBILE] Server listening on port ${PORT}`);
+    console.log(`[NOVA MOBILE] API available at http://localhost:${PORT}/api`);
+  });
+}
+
+startServer().catch(err => {
+  console.error('[NOVA MOBILE] Critical server failure:', err);
+  process.exit(1);
+});

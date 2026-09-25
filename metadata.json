@@ -1,0 +1,6 @@
+{
+  "name": "NOVA MOBILE - Next-Gen Flagship Smartphone Marketplace & Studio",
+  "description": "Discover and shop flagship smartphones, intelligent technology, and next-generation design in NOVA MOBILE's premium marketplace and management ecosystem.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
