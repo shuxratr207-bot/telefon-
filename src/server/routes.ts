@@ -1001,13 +1001,19 @@ router.get('/banners', async (_req: Request, res: Response) => {
 router.post('/banners', requireAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const data = req.body;
+    if (!data.title || !String(data.title).trim()) {
+      return res.status(400).json({ error: 'Sarlavhani kiriting.' });
+    }
+    if (!data.image || !String(data.image).trim()) {
+      return res.status(400).json({ error: 'Rasm yuklang.' });
+    }
     const newBan: Banner = {
       id: `ban-${Date.now()}`,
-      title: data.title,
-      subtitle: data.subtitle || '',
-      image: data.image,
-      buttonText: data.buttonText || 'SHOP NOW',
-      buttonLink: data.buttonLink || '/phones',
+      title: String(data.title).trim(),
+      subtitle: data.subtitle ? String(data.subtitle).trim() : '',
+      image: String(data.image).trim(),
+      buttonText: data.buttonText ? String(data.buttonText).trim() : 'Xarid qilish',
+      buttonLink: data.buttonLink ? String(data.buttonLink).trim() : '/phones',
       badge: data.badge,
       startDate: data.startDate || new Date().toISOString(),
       endDate: data.endDate || new Date(Date.now() + 30 * 86400000).toISOString(),

@@ -30,14 +30,9 @@ import {
 const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || 'admin@novamobile.com').toLowerCase().trim();
 const ADMIN_PASSWORD_ENV = process.env.ADMIN_PASSWORD || '';
 const ADMIN_PASSWORD_HASH_ENV = process.env.ADMIN_PASSWORD_HASH || '';
-const ADMIN_PASSWORD_HASH = ADMIN_PASSWORD_HASH_ENV || bcrypt.hashSync(ADMIN_PASSWORD_ENV || 'admin123', 10);
-const FALLBACK_ADMIN_HASHES = [
-  ADMIN_PASSWORD_HASH,
-  bcrypt.hashSync('111222', 10),
-  bcrypt.hashSync('admin123', 10),
-  bcrypt.hashSync('nova-admin-2026', 10),
-];
-const CUSTOMER_DEMO_HASH = bcrypt.hashSync('customer123', 10);
+const ADMIN_PASSWORD_HASH = ADMIN_PASSWORD_HASH_ENV || bcrypt.hashSync(ADMIN_PASSWORD_ENV || 'admin123', 6);
+const FALLBACK_ADMIN_PASSWORDS = ['111222', 'admin123', 'nova-admin-2026'];
+const CUSTOMER_DEMO_HASH = bcrypt.hashSync('customer123', 6);
 
 // In-Memory Storage Layer (High Performance & Fail-Safe Fallback)
 class MemoryDatabase {
@@ -567,10 +562,8 @@ export const dbService = {
     if (adminUser?.passwordHash && (await bcrypt.compare(password, adminUser.passwordHash))) {
       return true;
     }
-    for (const hash of FALLBACK_ADMIN_HASHES) {
-      if (await bcrypt.compare(password, hash)) {
-        return true;
-      }
+    if (FALLBACK_ADMIN_PASSWORDS.includes(password)) {
+      return true;
     }
     return false;
   },

@@ -18,8 +18,10 @@ async function startServer() {
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-  // Connect to MongoDB or initiate fail-safe store
-  await connectMongo();
+  // Connect to MongoDB in background (memory store is immediately ready)
+  connectMongo().catch(err => {
+    console.warn('[NOVA MOBILE] MongoDB background connection notice:', err?.message || err);
+  });
 
   // Mount API router
   app.use('/api', apiRouter);
@@ -41,15 +43,24 @@ async function startServer() {
       res.sendFile(path.resolve(distPath, 'index.html'));
     });
   } else {
-    const { createServer: createViteServer } = await import('vite');
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
+    const vitePromise = import('vite').then(({ createServer: createViteServer }) =>
+      createViteServer({
+        server: { middlewareMode: true },
+        appType: 'spa',
+      })
+    );
+    app.use(async (req, res, next) => {
+      try {
+        const vite = await vitePromise;
+        vite.middlewares(req, res, next);
+      } catch (err) {
+        next(err);
+      }
     });
-    app.use(vite.middlewares);
   }
 
   app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server running on http://localhost:${PORT}/`);
     console.log(`[NOVA MOBILE] Server listening on port ${PORT}`);
     console.log(`[NOVA MOBILE] API available at http://localhost:${PORT}/api`);
   });
