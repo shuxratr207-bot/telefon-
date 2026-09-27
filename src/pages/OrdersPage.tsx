@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Package, Clock, ShieldCheck, ArrowRight, ExternalLink, RefreshCw } from 'lucide-react';
+import { Package, Clock, ArrowRight, RefreshCw } from 'lucide-react';
 import { Order, OrderStatus } from '../types/index.ts';
 import { api } from '../services/api.ts';
 import { useAuth } from '../context/AuthContext.tsx';
+import { useLanguage } from '../context/LanguageContext.tsx';
 
 interface OrdersPageProps {
   onNavigate: (path: string) => void;
@@ -10,6 +11,7 @@ interface OrdersPageProps {
 
 export const OrdersPage: React.FC<OrdersPageProps> = ({ onNavigate }) => {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -55,13 +57,13 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({ onNavigate }) => {
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950/40 border border-cyan-500/30 text-cyan-400 text-xs font-semibold mb-2">
               <Package className="w-3.5 h-3.5" />
-              <span>DISPATCH &amp; TRACKING</span>
+              <span>{t('nav.orders')}</span>
             </div>
             <h1 className="text-3xl sm:text-4xl font-extrabold text-white font-['Space_Grotesk']">
-              Customer Orders ({orders.length})
+              {t('orders.title')} ({orders.length})
             </h1>
             <p className="text-sm text-slate-400 mt-1">
-              Track status, estimated deliveries, and verify manufacturer warranty receipts.
+              {t('orders.subtitle')}
             </p>
           </div>
 
@@ -70,23 +72,23 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({ onNavigate }) => {
             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-slate-300 hover:text-white transition-all self-start sm:self-auto"
           >
             <RefreshCw className="w-3.5 h-3.5" />
-            <span>Refresh</span>
+            <span>{t('admin.btn.update')}</span>
           </button>
         </div>
 
         {/* Orders List */}
         {isLoading ? (
-          <div className="py-20 text-center text-slate-400">Loading order records...</div>
+          <div className="py-20 text-center text-slate-400">{t('admin.state.loading')}</div>
         ) : orders.length === 0 ? (
           <div className="py-24 text-center bg-[#0d0f17] border border-white/10 rounded-3xl p-8 max-w-md mx-auto">
             <Package className="w-12 h-12 mx-auto mb-3 text-slate-500" />
-            <h3 className="text-lg font-bold text-white mb-1">No Orders Found</h3>
-            <p className="text-xs text-slate-400 mb-6">You haven&apos;t placed any smartphone orders yet.</p>
+            <h3 className="text-lg font-bold text-white mb-1">{t('orders.emptyTitle')}</h3>
+            <p className="text-xs text-slate-400 mb-6">{t('orders.emptySub')}</p>
             <button
               onClick={() => onNavigate('/phones')}
               className="px-6 py-2.5 rounded-xl bg-cyan-500 text-black font-bold text-xs"
             >
-              Browse Catalog
+              {t('hero.exploreBtn')}
             </button>
           </div>
         ) : (
@@ -107,21 +109,15 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({ onNavigate }) => {
                         order.status
                       )}`}
                     >
-                      {order.status}
+                      {t(`admin.status.${order.status}`, order.status)}
                     </span>
                   </div>
                   <div className="text-xs text-slate-400 flex items-center gap-2">
                     <Clock className="w-3.5 h-3.5 text-slate-500" />
-                    <span>Placed on {new Date(order.createdAt).toLocaleDateString('en-US', {
-                      year: 'numeric',
-                      month: 'short',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}</span>
+                    <span>{new Date(order.createdAt).toLocaleDateString()}</span>
                   </div>
                   <p className="text-xs text-slate-400">
-                    Recipient: <strong className="text-slate-200">{order.customer.fullName}</strong> ({order.customer.city}, {order.customer.region})
+                    {t('admin.orders.customer')}: <strong className="text-slate-200">{order.customer.fullName}</strong> ({order.customer.city}, {order.customer.region})
                   </p>
                 </div>
 
@@ -146,10 +142,10 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({ onNavigate }) => {
                   <div className="text-left md:text-right">
                     <span className="text-xs text-slate-400 block uppercase tracking-wider">
                       {order.paymentMethod === 'apple_pay'
-                        ? 'Apple Pay'
+                        ? 'Payme / Click'
                         : order.paymentMethod === 'cod'
-                        ? 'Cash on Delivery'
-                        : 'Credit Card'}
+                        ? 'Naqd pul'
+                        : 'Bank kartasi'}
                     </span>
                     <span className="text-lg font-extrabold text-cyan-400">
                       ${order.total.toLocaleString()}
@@ -160,7 +156,7 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({ onNavigate }) => {
                     onClick={() => setSelectedOrder(order)}
                     className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 text-xs font-semibold text-white transition-all flex items-center gap-1.5"
                   >
-                    <span>View Details</span>
+                    <span>{t('admin.orders.details')}</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -180,40 +176,64 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({ onNavigate }) => {
               <div className="flex items-center justify-between pb-4 border-b border-white/10">
                 <div>
                   <h3 className="text-xl font-bold text-white font-['Space_Grotesk']">
-                    Order #{selectedOrder.orderNumber}
+                    {t('admin.orders.orderNumber')} #{selectedOrder.orderNumber}
                   </h3>
                   <span className="text-xs text-slate-400">
-                    Status: <strong className="text-cyan-400">{selectedOrder.status}</strong>
+                    {t('admin.orders.status')}: <strong className="text-cyan-400">{t(`admin.status.${selectedOrder.status}`, selectedOrder.status)}</strong>
                   </span>
                 </div>
                 <button
                   onClick={() => setSelectedOrder(null)}
                   className="px-3 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-bold text-slate-400 hover:text-white"
                 >
-                  Close
+                  {t('admin.btn.close')}
                 </button>
               </div>
 
               {/* Items */}
               <div className="space-y-3">
                 <h4 className="text-xs uppercase font-bold text-slate-400 tracking-wider">
-                  Purchased Hardware
+                  {t('admin.orders.items')}
                 </h4>
                 <div className="divide-y divide-white/5 bg-black/30 rounded-2xl p-4 border border-white/5">
                   {selectedOrder.items.map((it, idx) => (
-                    <div key={idx} className="py-3 first:pt-0 last:pb-0 flex items-center justify-between">
+                    <div key={idx} className="py-3 first:pt-0 last:pb-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div className="flex items-center gap-3">
-                        <img src={it.image} alt={it.name} className="w-12 h-12 object-contain" />
+                        <img src={it.image} alt={it.productName || it.name} className="w-12 h-12 object-contain" />
                         <div>
-                          <p className="text-sm font-bold text-white">{it.name}</p>
-                          <p className="text-xs text-slate-400">
-                            {it.color} • {it.storage} • Quantity: {it.quantity}
-                          </p>
+                          <p className="text-sm font-bold text-white">{it.productName || it.name}</p>
+                          <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-300 mt-1">
+                            {it.color && (
+                              <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10">
+                                Rang: <strong className="text-white">{it.color}</strong>
+                              </span>
+                            )}
+                            {it.storage && (
+                              <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10">
+                                Xotira: <strong className="text-white">{it.storage}</strong>
+                              </span>
+                            )}
+                            {it.ram && (
+                              <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10">
+                                Tezkor xotira: <strong className="text-white">{it.ram}</strong>
+                              </span>
+                            )}
+                            {it.model && (
+                              <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10">
+                                Versiya: <strong className="text-cyan-400">{it.model}</strong>
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
-                      <span className="text-sm font-bold text-white">
-                        ${(it.price * it.quantity).toLocaleString()}
-                      </span>
+                      <div className="text-right tabular-nums">
+                        <div className="text-xs text-slate-400">
+                          ${it.price.toLocaleString()} × {it.quantity} {t('admin.products.units')}
+                        </div>
+                        <span className="text-sm font-bold text-cyan-400">
+                          ${(it.price * it.quantity).toLocaleString()}
+                        </span>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -222,30 +242,30 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({ onNavigate }) => {
               {/* Delivery address & Customer info */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                 <div className="p-4 rounded-xl bg-white/5 border border-white/5 space-y-1">
-                  <span className="font-bold text-slate-400 block mb-1">Shipping Destination</span>
+                  <span className="font-bold text-slate-400 block mb-1">{t('admin.orders.delivery')}</span>
                   <p className="text-white font-semibold">{selectedOrder.customer.fullName}</p>
                   <p className="text-slate-300">{selectedOrder.customer.address}</p>
                   <p className="text-slate-300">{selectedOrder.customer.city}, {selectedOrder.customer.region}</p>
                   <p className="text-slate-400">{selectedOrder.customer.phone}</p>
                 </div>
                 <div className="p-4 rounded-xl bg-white/5 border border-white/5 space-y-1">
-                  <span className="font-bold text-slate-400 block mb-1">Payment &amp; Fees</span>
+                  <span className="font-bold text-slate-400 block mb-1">{t('admin.orders.payment')}</span>
                   <div className="flex justify-between text-slate-300">
-                    <span>Subtotal:</span>
+                    <span>{t('cart.subtotal')}:</span>
                     <span>${selectedOrder.subtotal.toLocaleString()}</span>
                   </div>
                   {selectedOrder.discount > 0 && (
                     <div className="flex justify-between text-emerald-400">
-                      <span>Discount:</span>
+                      <span>{t('cart.discount')}:</span>
                       <span>-${selectedOrder.discount.toLocaleString()}</span>
                     </div>
                   )}
                   <div className="flex justify-between text-slate-300">
-                    <span>Delivery:</span>
-                    <span>{selectedOrder.deliveryFee === 0 ? 'FREE' : `$${selectedOrder.deliveryFee}`}</span>
+                    <span>{t('cart.shipping')}:</span>
+                    <span>{selectedOrder.deliveryFee === 0 ? t('cart.free') : `$${selectedOrder.deliveryFee}`}</span>
                   </div>
                   <div className="pt-2 border-t border-white/10 flex justify-between font-bold text-white text-sm">
-                    <span>Total Paid:</span>
+                    <span>{t('cart.total')}:</span>
                     <span className="text-cyan-400">${selectedOrder.total.toLocaleString()}</span>
                   </div>
                 </div>

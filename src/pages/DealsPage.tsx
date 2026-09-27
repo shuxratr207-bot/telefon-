@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Flame, Clock, Zap, ArrowRight, ShieldCheck, Tag } from 'lucide-react';
+import { Flame, Clock } from 'lucide-react';
 import { Product, Deal } from '../types/index.ts';
 import { api } from '../services/api.ts';
 import { ProductCard } from '../components/common/ProductCard.tsx';
+import { useLanguage } from '../context/LanguageContext.tsx';
 
 interface DealsPageProps {
   onNavigate: (path: string) => void;
 }
 
 export const DealsPage: React.FC<DealsPageProps> = ({ onNavigate }) => {
+  const { t } = useLanguage();
   const [dealProducts, setDealProducts] = useState<Product[]>([]);
-  const [deals, setDeals] = useState<Deal[]>([]);
+  const [, setDeals] = useState<Deal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // 24-hour countdown simulation
@@ -54,26 +56,25 @@ export const DealsPage: React.FC<DealsPageProps> = ({ onNavigate }) => {
           <div className="max-w-xl space-y-4 relative z-10">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/20 text-rose-300 text-xs font-bold border border-rose-500/30">
               <Flame className="w-3.5 h-3.5 fill-rose-400" />
-              <span>FLASH SALE IN PROGRESS</span>
+              <span>{t('deals.badge')}</span>
             </div>
             <h1 className="text-3xl sm:text-5xl font-extrabold text-white font-['Space_Grotesk']">
-              Exclusive Hardware Deals
+              {t('deals.title')}
             </h1>
             <p className="text-sm text-slate-300 leading-relaxed">
-              Save up to $200 instantly on selected titanium flagships, foldable wonders and gaming titans. Quantities are strictly capped per customer.
+              {t('deals.subtitle')}
             </p>
 
             {/* Countdown Box */}
             <div className="flex items-center gap-3 pt-2">
               <div className="flex items-center gap-2 bg-black/60 border border-white/10 px-4 py-2.5 rounded-2xl">
                 <Clock className="w-4 h-4 text-rose-400" />
-                <span className="text-xs uppercase font-semibold text-slate-400">Offer Expires In:</span>
                 <div className="flex items-center gap-1 font-mono font-bold text-white text-sm">
-                  <span className="text-rose-400">{String(timeLeft.hours).padStart(2, '0')}h</span>
+                  <span className="text-rose-400">{String(timeLeft.hours).padStart(2, '0')} {t('home.hours')}</span>
                   <span>:</span>
-                  <span className="text-rose-400">{String(timeLeft.minutes).padStart(2, '0')}m</span>
+                  <span className="text-rose-400">{String(timeLeft.minutes).padStart(2, '0')} {t('home.mins')}</span>
                   <span>:</span>
-                  <span className="text-rose-400">{String(timeLeft.seconds).padStart(2, '0')}s</span>
+                  <span className="text-rose-400">{String(timeLeft.seconds).padStart(2, '0')} {t('home.secs')}</span>
                 </div>
               </div>
             </div>
@@ -84,14 +85,14 @@ export const DealsPage: React.FC<DealsPageProps> = ({ onNavigate }) => {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h2 className="text-2xl font-bold text-white font-['Space_Grotesk']">
-              Active Flash Price Cuts ({dealProducts.length})
+              {t('home.flashTitle')} ({dealProducts.length})
             </h2>
-            <p className="text-xs text-slate-400 mt-1">Dispatched in original factory sealed packaging</p>
+            <p className="text-xs text-slate-400 mt-1">{t('trust.originalDesc')}</p>
           </div>
         </div>
 
         {isLoading ? (
-          <div className="py-20 text-center text-slate-400">Loading promotional stock...</div>
+          <div className="py-20 text-center text-slate-400">...</div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {dealProducts.map(product => (

@@ -1,23 +1,27 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
+  Smartphone,
   Search,
+  ShoppingCart,
   Heart,
-  ShoppingBag,
+  Scale,
   User as UserIcon,
   Menu,
   X,
-  Layers,
-  Sparkles,
+  Flame,
   ShieldCheck,
   ChevronRight,
   LogOut,
+  Package,
+  Globe,
 } from 'lucide-react';
 import { useCart } from '../../context/CartContext.tsx';
 import { useWishlist } from '../../context/WishlistContext.tsx';
 import { useCompare } from '../../context/CompareContext.tsx';
 import { useAuth } from '../../context/AuthContext.tsx';
-import { SearchModal } from './SearchModal.tsx';
+import { useLanguage, Language } from '../../context/LanguageContext.tsx';
+import { Product } from '../../types/index.ts';
+import { api } from '../../services/api.ts';
 
 interface HeaderProps {
   currentPath: string;
@@ -25,382 +29,441 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ currentPath, onNavigate }) => {
-  const [isScrolled, setIsScrolled] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-
   const { itemCount, setIsCartOpen } = useCart();
   const { wishlistCount } = useWishlist();
   const { compareProducts } = useCompare();
-  const { user, isAdmin, logout } = useAuth();
+  const { user, logout, isAdmin } = useAuth();
+  const { language, setLanguage, t } = useLanguage();
+
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Product[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
+  const desktopSearchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 20);
+    if (searchQuery.trim().length > 1) {
+      api
+        .getProducts({ search: searchQuery.trim() })
+        .then((res) => {
+          setSearchResults(res.products.slice(0, 5));
+          setShowSuggestions(true);
+        })
+        .catch(() => {
+          setSearchResults([]);
+        });
+    } else {
+      setSearchResults([]);
+      setShowSuggestions(false);
+    }
+  }, [searchQuery]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
     };
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.key === '/' &&
+        !['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName)
+      ) {
+        e.preventDefault();
+        desktopSearchInputRef.current?.focus();
+      } else if (e.key === 'Escape') {
+        setShowSuggestions(false);
+        setMobileMenuOpen(false);
+        setUserMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, []);
 
   const navLinks = [
-    { label: 'Home', path: '/' },
-    { label: 'Phones', path: '/phones' },
-    { label: 'Brands', path: '/brands' },
-    { label: 'Compare', path: '/compare', badge: compareProducts.length > 0 ? compareProducts.length : null },
-    { label: 'Deals', path: '/deals', isHot: true },
-    { label: 'About', path: '/about' },
+    { name: t('nav.home'), path: '/' },
+    { name: t('nav.phones'), path: '/phones' },
+    { name: t('nav.brands'), path: '/brands' },
+    { name: t('nav.compare'), path: '/compare' },
+    { name: t('nav.deals'), path: '/deals', highlight: true },
+    { name: t('nav.about'), path: '/about' },
   ];
 
-  const handleNavClick = (path: string) => {
-    onNavigate(path);
-    setIsMobileMenuOpen(false);
-    setIsUserMenuOpen(false);
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      setShowSuggestions(false);
+      onNavigate(`/phones?search=${encodeURIComponent(searchQuery.trim())}`);
+    }
   };
 
   return (
-    <>
-      <header
-        className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${
-          isScrolled
-            ? 'bg-[#090a0f]/80 backdrop-blur-xl border-b border-cyan-500/15 py-3.5 shadow-lg shadow-black/40'
-            : 'bg-transparent py-5 border-b border-transparent'
-        }`}
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between">
-            {/* Logo */}
-            <div className="flex items-center gap-8">
-              <button
-                onClick={() => handleNavClick('/')}
-                className="flex items-center gap-2.5 text-left group focus:outline-none"
-              >
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 via-blue-600 to-indigo-600 p-[1px] shadow-lg shadow-cyan-500/20 group-hover:shadow-cyan-400/40 transition-all">
-                  <div className="w-full h-full bg-[#090a0f] rounded-[11px] flex items-center justify-center">
-                    <span className="font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-indigo-400 text-lg tracking-tighter">
-                      N
-                    </span>
-                  </div>
-                </div>
-                <div>
-                  <span className="font-extrabold tracking-wider text-lg sm:text-xl font-['Space_Grotesk'] text-white">
-                    NOVA<span className="text-cyan-400">.</span>MOBILE
-                  </span>
-                  <span className="hidden sm:block text-[9px] tracking-[0.25em] text-slate-400 uppercase font-medium -mt-1">
-                    Flagship Studio
-                  </span>
-                </div>
-              </button>
-
-              {/* Desktop Nav */}
-              <nav className="hidden md:flex items-center gap-1 lg:gap-2">
-                {navLinks.map(link => {
-                  const isActive = currentPath === link.path;
-                  return (
-                    <button
-                      key={link.path}
-                      onClick={() => handleNavClick(link.path)}
-                      className={`relative px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-1.5 ${
-                        isActive
-                          ? 'text-cyan-400 bg-cyan-950/40 border border-cyan-500/30 shadow-sm shadow-cyan-500/10'
-                          : 'text-slate-300 hover:text-white hover:bg-white/5'
-                      }`}
-                    >
-                      {link.label}
-                      {link.isHot && (
-                        <span className="relative flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
-                        </span>
-                      )}
-                      {link.badge && (
-                        <span className="text-[10px] font-bold px-1.5 py-0.2 bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 rounded-full">
-                          {link.badge}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </nav>
-            </div>
-
-            {/* Right Actions */}
-            <div className="flex items-center gap-2 sm:gap-3">
-              {/* Search Button */}
-              <button
-                onClick={() => setIsSearchOpen(true)}
-                className="flex items-center gap-2 px-3 py-1.5 text-sm text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all"
-                title="Search (Cmd+K)"
-              >
-                <Search className="w-4 h-4 text-cyan-400" />
-                <span className="hidden lg:inline text-xs text-slate-400">Search phones...</span>
-                <kbd className="hidden lg:inline text-[10px] text-slate-500 bg-black/40 px-1.5 py-0.5 rounded border border-white/5">
-                  ⌘K
-                </kbd>
-              </button>
-
-              {/* Wishlist */}
-              <button
-                onClick={() => handleNavClick('/wishlist')}
-                className="relative p-2.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/10 transition-all"
-                title="Wishlist"
-              >
-                <Heart className={`w-5 h-5 ${wishlistCount > 0 ? 'text-rose-400 fill-rose-500/20' : ''}`} />
-                {wishlistCount > 0 && (
-                  <motion.span
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-gradient-to-r from-rose-500 to-pink-500 text-white text-[10px] font-bold flex items-center justify-center shadow-lg shadow-rose-500/30"
-                  >
-                    {wishlistCount}
-                  </motion.span>
-                )}
-              </button>
-
-              {/* Cart Button */}
-              <button
-                onClick={() => setIsCartOpen(true)}
-                className="relative p-2.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/10 transition-all"
-                title="Cart"
-              >
-                <ShoppingBag className={`w-5 h-5 ${itemCount > 0 ? 'text-cyan-400' : ''}`} />
-                {itemCount > 0 && (
-                  <motion.span
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-[10px] font-bold flex items-center justify-center shadow-lg shadow-cyan-500/30"
-                  >
-                    {itemCount}
-                  </motion.span>
-                )}
-              </button>
-
-              {/* Account Dropdown */}
-              <div className="relative">
-                <button
-                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                  className={`p-2.5 rounded-xl transition-all border ${
-                    isAdmin
-                      ? 'border-indigo-500/40 bg-indigo-950/30 text-indigo-300'
-                      : user
-                      ? 'border-cyan-500/30 bg-cyan-950/20 text-cyan-300'
-                      : 'border-white/10 bg-white/5 text-slate-300 hover:text-white'
-                  }`}
-                  title={user ? user.name : 'Account'}
-                >
-                  <UserIcon className="w-5 h-5" />
-                </button>
-
-                {/* Dropdown Menu */}
-                <AnimatePresence>
-                  {isUserMenuOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                      transition={{ duration: 0.15 }}
-                      className="absolute right-0 mt-2 w-64 bg-[#0d0f17] border border-cyan-500/20 rounded-2xl shadow-2xl p-2 z-50 overflow-hidden"
-                    >
-                      {user ? (
-                        <>
-                          <div className="p-3 border-b border-white/5">
-                            <p className="text-xs text-slate-400">Signed in as</p>
-                            <p className="text-sm font-semibold text-white truncate">{user.name}</p>
-                            <p className="text-xs text-slate-400 truncate">{user.email}</p>
-                            {isAdmin && (
-                              <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-500/30 text-[10px] font-bold text-indigo-300">
-                                <ShieldCheck className="w-3 h-3" />
-                                Store Administrator
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="py-1">
-                            {isAdmin && (
-                              <button
-                                onClick={() => handleNavClick('/admin')}
-                                className="w-full flex items-center justify-between px-3 py-2 text-sm text-indigo-300 hover:bg-indigo-950/40 rounded-xl transition-colors font-medium"
-                              >
-                                <span className="flex items-center gap-2">
-                                  <ShieldCheck className="w-4 h-4 text-indigo-400" />
-                                  Admin Control Panel
-                                </span>
-                                <ChevronRight className="w-4 h-4" />
-                              </button>
-                            )}
-
-                            <button
-                              onClick={() => handleNavClick('/profile')}
-                              className="w-full flex items-center justify-between px-3 py-2 text-sm text-slate-300 hover:text-white hover:bg-white/5 rounded-xl transition-colors"
-                            >
-                              <span>My Profile & Settings</span>
-                              <ChevronRight className="w-4 h-4 text-slate-500" />
-                            </button>
-
-                            <button
-                              onClick={() => handleNavClick('/orders')}
-                              className="w-full flex items-center justify-between px-3 py-2 text-sm text-slate-300 hover:text-white hover:bg-white/5 rounded-xl transition-colors"
-                            >
-                              <span>Order History</span>
-                              <ChevronRight className="w-4 h-4 text-slate-500" />
-                            </button>
-
-                            <button
-                              onClick={() => handleNavClick('/wishlist')}
-                              className="w-full flex items-center justify-between px-3 py-2 text-sm text-slate-300 hover:text-white hover:bg-white/5 rounded-xl transition-colors"
-                            >
-                              <span>Saved Wishlist</span>
-                              <span className="text-xs font-semibold text-slate-500">
-                                {wishlistCount}
-                              </span>
-                            </button>
-                          </div>
-
-                          <div className="pt-1 border-t border-white/5">
-                            <button
-                              onClick={() => {
-                                logout();
-                                setIsUserMenuOpen(false);
-                              }}
-                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-rose-400 hover:bg-rose-950/30 rounded-xl transition-colors"
-                            >
-                              <LogOut className="w-4 h-4" />
-                              Sign Out
-                            </button>
-                          </div>
-                        </>
-                      ) : (
-                        <div className="p-3 text-center">
-                          <p className="text-sm font-semibold text-white mb-1">Welcome to NOVA</p>
-                          <p className="text-xs text-slate-400 mb-3">Sign in to track orders and save devices.</p>
-                          <button
-                            onClick={() => handleNavClick('/profile')}
-                            className="w-full py-2 px-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-xs font-bold shadow-lg shadow-cyan-500/20 hover:brightness-110 transition-all mb-2"
-                          >
-                            Sign In / Register
-                          </button>
-                          <button
-                            onClick={() => handleNavClick('/admin/login')}
-                            className="w-full py-2 px-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 text-xs font-medium transition-all"
-                          >
-                            Admin Portal Login
-                          </button>
-                        </div>
-                      )}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-
-              {/* Mobile Menu Trigger */}
-              <button
-                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="md:hidden p-2.5 rounded-xl text-slate-300 hover:text-white bg-white/5 border border-white/10"
-                aria-label="Toggle navigation menu"
-              >
-                {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-              </button>
-            </div>
+    <header className="sticky top-0 z-40 w-full backdrop-blur-xl bg-[#090a0f]/90 border-b border-white/10 transition-all">
+      {/* Top Language & Utility Bar */}
+      <div className="bg-gradient-to-r from-cyan-950/50 via-[#090E1A] to-indigo-950/50 border-b border-white/5 py-1.5 px-4">
+        <div className="max-w-[1440px] mx-auto sm:px-2 lg:px-6 flex items-center justify-between text-[11px] text-slate-300">
+          <div className="hidden md:flex items-center gap-4">
+            <span className="flex items-center gap-1.5 text-cyan-400 font-semibold">
+              <ShieldCheck className="w-3.5 h-3.5" /> {t('trust.warrantyTitle')}
+            </span>
+            <span className="text-slate-600">•</span>
+            <span>{t('detail.deliveryInfo')}</span>
           </div>
-        </div>
-      </header>
 
-      {/* Mobile Drawer */}
-      <AnimatePresence>
-        {isMobileMenuOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-40 md:hidden bg-black/80 backdrop-blur-xl flex flex-col pt-24 px-6 pb-8"
-          >
-            <div className="flex flex-col space-y-2">
-              {navLinks.map(link => (
+          <div className="flex items-center justify-between md:justify-end w-full md:w-auto gap-4">
+            {/* Language Switcher */}
+            <div className="flex items-center gap-1 bg-white/[0.04] border border-white/10 rounded-lg p-0.5">
+              <Globe className="w-3 h-3 text-slate-400 ml-1.5 mr-0.5" />
+              {(['UZ', 'RU', 'EN'] as Language[]).map((lang) => (
                 <button
-                  key={link.path}
-                  onClick={() => handleNavClick(link.path)}
-                  className={`flex items-center justify-between py-3 px-4 rounded-xl text-base font-semibold transition-all ${
-                    currentPath === link.path
-                      ? 'bg-cyan-950/50 border border-cyan-500/30 text-cyan-400'
-                      : 'text-slate-200 hover:bg-white/5'
+                  key={lang}
+                  onClick={() => setLanguage(lang)}
+                  className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all cursor-pointer ${
+                    language === lang
+                      ? 'bg-cyan-500 text-black shadow-sm'
+                      : 'text-slate-400 hover:text-white'
                   }`}
                 >
-                  <span className="flex items-center gap-2">
-                    {link.label}
-                    {link.isHot && (
-                      <span className="px-1.5 py-0.5 text-[10px] bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded font-bold">
-                        HOT
-                      </span>
-                    )}
-                  </span>
-                  <ChevronRight className="w-5 h-5 text-slate-500" />
+                  {lang}
                 </button>
               ))}
+            </div>
 
-              <div className="pt-4 border-t border-white/10 flex flex-col space-y-2">
+            {isAdmin && (
+              <button
+                onClick={() => onNavigate('/admin')}
+                className="hidden sm:inline-flex items-center gap-1 text-cyan-400 hover:text-cyan-300 font-bold"
+              >
+                <ShieldCheck className="w-3.5 h-3.5" /> {t('nav.adminPanel')}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10">
+        <div className="flex items-center justify-between h-16 sm:h-20 gap-3 lg:gap-6">
+          {/* Brand Logo */}
+          <button
+            onClick={() => onNavigate('/')}
+            className="flex items-center gap-2.5 text-left group focus:outline-none shrink-0 cursor-pointer"
+          >
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/25 group-hover:shadow-cyan-500/40 transition-all">
+              <Smartphone className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+            </div>
+            <div>
+              <div className="font-['Space_Grotesk'] font-extrabold text-lg sm:text-xl tracking-tight text-white flex items-center gap-1">
+                NOVA
+                <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
+                  MOBILE
+                </span>
+              </div>
+              <span className="block text-[10px] uppercase tracking-widest text-slate-400 font-medium -mt-1">
+                {t('nav.flagshipStudio')}
+              </span>
+            </div>
+          </button>
+
+          {/* Desktop Navigation */}
+          <nav className="hidden lg:flex items-center gap-1 xl:gap-1.5">
+            {navLinks.map((link) => {
+              const isActive =
+                link.path === '/'
+                  ? currentPath === '/'
+                  : currentPath.startsWith(link.path);
+              return (
                 <button
-                  onClick={() => handleNavClick('/cart')}
-                  className="flex items-center justify-between py-3 px-4 rounded-xl text-base font-semibold text-slate-200 hover:bg-white/5"
+                  key={link.path}
+                  onClick={() => onNavigate(link.path)}
+                  className={`px-3.5 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+                    isActive
+                      ? 'bg-white/10 text-white shadow-sm'
+                      : 'text-slate-300 hover:text-white hover:bg-white/5'
+                  }`}
                 >
-                  <span className="flex items-center gap-3">
-                    <ShoppingBag className="w-5 h-5 text-cyan-400" />
-                    Shopping Cart
-                  </span>
-                  <span className="text-xs font-bold px-2 py-0.5 bg-cyan-500/20 text-cyan-300 rounded-full">
-                    {itemCount}
-                  </span>
+                  {link.highlight && (
+                    <Flame className="w-3.5 h-3.5 text-rose-500 fill-rose-500" />
+                  )}
+                  {link.name}
                 </button>
+              );
+            })}
+          </nav>
 
+          {/* Smart Search Bar (Desktop) */}
+          <div ref={searchRef} className="hidden md:block relative flex-1 max-w-xs xl:max-w-md">
+            <form onSubmit={handleSearchSubmit} className="relative">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                ref={desktopSearchInputRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => searchQuery.trim().length > 1 && setShowSuggestions(true)}
+                placeholder={t('nav.searchPlaceholder')}
+                className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-cyan-400 focus:bg-white/[0.07] transition-all"
+              />
+              {searchQuery ? (
                 <button
-                  onClick={() => handleNavClick('/wishlist')}
-                  className="flex items-center justify-between py-3 px-4 rounded-xl text-base font-semibold text-slate-200 hover:bg-white/5"
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
                 >
-                  <span className="flex items-center gap-3">
-                    <Heart className="w-5 h-5 text-rose-400" />
-                    Wishlist
-                  </span>
-                  <span className="text-xs font-bold px-2 py-0.5 bg-rose-500/20 text-rose-300 rounded-full">
-                    {wishlistCount}
-                  </span>
+                  <X className="w-3.5 h-3.5" />
                 </button>
+              ) : (
+                <kbd className="hidden xl:inline-block absolute right-3 top-1/2 -translate-y-1/2 px-1.5 py-0.5 text-[10px] font-mono text-slate-500 bg-white/5 border border-white/10 rounded">
+                  /
+                </kbd>
+              )}
+            </form>
 
-                <button
-                  onClick={() => handleNavClick('/compare')}
-                  className="flex items-center justify-between py-3 px-4 rounded-xl text-base font-semibold text-slate-200 hover:bg-white/5"
-                >
-                  <span className="flex items-center gap-3">
-                    <Layers className="w-5 h-5 text-indigo-400" />
-                    Compare Devices
-                  </span>
-                  <span className="text-xs font-bold px-2 py-0.5 bg-indigo-500/20 text-indigo-300 rounded-full">
-                    {compareProducts.length}/3
-                  </span>
-                </button>
-
-                {isAdmin && (
-                  <button
-                    onClick={() => handleNavClick('/admin')}
-                    className="flex items-center justify-between py-3 px-4 rounded-xl text-base font-bold text-indigo-300 bg-indigo-950/40 border border-indigo-500/30"
-                  >
-                    <span className="flex items-center gap-3">
-                      <ShieldCheck className="w-5 h-5 text-indigo-400" />
-                      Admin Control Panel
-                    </span>
-                    <ChevronRight className="w-5 h-5" />
-                  </button>
+            {/* Instant Suggestions Dropdown */}
+            {showSuggestions && (
+              <div className="absolute top-full left-0 right-0 mt-2 rounded-2xl bg-[#0d0f17] border border-white/10 shadow-2xl overflow-hidden z-50">
+                {searchResults.length > 0 ? (
+                  <div className="divide-y divide-white/5">
+                    {searchResults.map((item) => (
+                      <button
+                        key={item.id}
+                        onClick={() => {
+                          setShowSuggestions(false);
+                          setSearchQuery('');
+                          onNavigate(`/phones/${item.id}`);
+                        }}
+                        className="w-full p-3 flex items-center gap-3 hover:bg-white/5 transition-colors text-left"
+                      >
+                        <img
+                          src={item.images?.[0]}
+                          alt={item.name}
+                          className="w-11 h-11 rounded-lg object-contain bg-white/5 p-1 shrink-0"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs text-cyan-400 font-medium">{item.brand}</div>
+                          <div className="text-sm font-semibold text-white truncate">
+                            {item.name}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm font-bold text-white">
+                            ${item.price.toLocaleString()}
+                          </div>
+                          <span className="text-[10px] text-emerald-400">
+                            {t('product.inStock')}
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-4 text-center text-sm text-slate-400">
+                    "{searchQuery}" — {t('catalog.noResults')}
+                  </div>
                 )}
               </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            )}
+          </div>
 
-      {/* Global Search Modal */}
-      <SearchModal
-        isOpen={isSearchOpen}
-        onClose={() => setIsSearchOpen(false)}
-        onSelectProduct={id => onNavigate(`/phones/${id}`)}
-      />
-    </>
+          {/* Right Action Icons */}
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* Compare */}
+            <button
+              onClick={() => onNavigate('/compare')}
+              title={t('nav.compare')}
+              className="relative p-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-slate-300 hover:text-white transition-all cursor-pointer"
+            >
+              <Scale className="w-4 h-4 sm:w-5 sm:h-5" />
+              {compareProducts.length > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center shadow-lg">
+                  {compareProducts.length}
+                </span>
+              )}
+            </button>
+
+            {/* Wishlist */}
+            <button
+              onClick={() => onNavigate('/wishlist')}
+              title={t('nav.wishlist')}
+              className="relative p-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-slate-300 hover:text-white transition-all cursor-pointer"
+            >
+              <Heart className="w-4 h-4 sm:w-5 sm:h-5" />
+              {wishlistCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center shadow-lg">
+                  {wishlistCount}
+                </span>
+              )}
+            </button>
+
+            {/* Cart Button */}
+            <button
+              onClick={() => setIsCartOpen(true)}
+              title={t('nav.cart')}
+              className="relative p-2.5 sm:px-3.5 sm:py-2.5 rounded-xl bg-gradient-to-r from-cyan-500/20 to-blue-600/20 hover:from-cyan-500/30 hover:to-blue-600/30 border border-cyan-500/30 text-white flex items-center gap-2 transition-all cursor-pointer"
+            >
+              <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400" />
+              <span className="hidden sm:inline text-xs font-bold">{t('nav.cart')}</span>
+              {itemCount > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full bg-cyan-500 text-black text-[10px] font-extrabold">
+                  {itemCount}
+                </span>
+              )}
+            </button>
+
+            {/* User Profile / Auth Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setUserMenuOpen(!userMenuOpen)}
+                className="p-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-slate-300 hover:text-white flex items-center gap-2 transition-all cursor-pointer"
+              >
+                <UserIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+                {user && (
+                  <span className="hidden xl:inline text-xs font-semibold text-white max-w-[90px] truncate">
+                    {user.name.split(' ')[0]}
+                  </span>
+                )}
+              </button>
+
+              {userMenuOpen && (
+                <div
+                  onMouseLeave={() => setUserMenuOpen(false)}
+                  className="absolute right-0 mt-2 w-60 rounded-2xl bg-[#0d0f17] border border-white/10 shadow-2xl p-2 z-50"
+                >
+                  {user ? (
+                    <>
+                      <div className="px-3 py-2.5 border-b border-white/10 mb-1">
+                        <div className="text-xs text-slate-400">{t('nav.signedInAs')}</div>
+                        <div className="text-sm font-bold text-white truncate">{user.name}</div>
+                        <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-cyan-500/20 text-cyan-400">
+                          {user.role === 'admin' ? t('nav.storeAdmin') : t('nav.vipCustomer')}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setUserMenuOpen(false);
+                          onNavigate('/profile');
+                        }}
+                        className="w-full px-3 py-2 rounded-xl text-left text-xs font-medium text-slate-200 hover:bg-white/5 flex items-center gap-2.5"
+                      >
+                        <UserIcon className="w-4 h-4 text-cyan-400" /> {t('nav.profile')}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setUserMenuOpen(false);
+                          onNavigate('/orders');
+                        }}
+                        className="w-full px-3 py-2 rounded-xl text-left text-xs font-medium text-slate-200 hover:bg-white/5 flex items-center gap-2.5"
+                      >
+                        <Package className="w-4 h-4 text-purple-400" /> {t('nav.orders')}
+                      </button>
+                      {isAdmin && (
+                        <button
+                          onClick={() => {
+                            setUserMenuOpen(false);
+                            onNavigate('/admin');
+                          }}
+                          className="w-full px-3 py-2 rounded-xl text-left text-xs font-bold text-emerald-400 hover:bg-emerald-500/10 flex items-center gap-2.5"
+                        >
+                          <ShieldCheck className="w-4 h-4" /> {t('nav.adminControl')}
+                        </button>
+                      )}
+                      <button
+                        onClick={() => {
+                          logout();
+                          setUserMenuOpen(false);
+                        }}
+                        className="w-full mt-1 pt-2 border-t border-white/10 px-3 py-2 rounded-xl text-left text-xs font-medium text-rose-400 hover:bg-rose-500/10 flex items-center gap-2.5"
+                      >
+                        <LogOut className="w-4 h-4" /> {t('nav.signout')}
+                      </button>
+                    </>
+                  ) : (
+                    <div className="p-2 space-y-2">
+                      <div className="text-xs font-semibold text-white px-1">
+                        {t('nav.welcome')}
+                      </div>
+                      <p className="text-[11px] text-slate-400 px-1">{t('nav.welcomeSub')}</p>
+                      <button
+                        onClick={() => {
+                          setUserMenuOpen(false);
+                          onNavigate('/signin');
+                        }}
+                        className="w-full py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black text-xs font-bold transition-colors"
+                      >
+                        {t('nav.signin')} / {t('nav.signup')}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Mobile Menu Toggle */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="lg:hidden p-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-slate-300 hover:text-white"
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile Navigation Drawer */}
+      {mobileMenuOpen && (
+        <div className="lg:hidden bg-[#0A0F1D] border-b border-white/10 px-4 pt-3 pb-6 space-y-4">
+          <form onSubmit={handleSearchSubmit} className="relative">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={t('nav.searchShort')}
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-cyan-400"
+            />
+          </form>
+
+          <div className="grid grid-cols-1 gap-1">
+            {navLinks.map((link) => (
+              <button
+                key={link.path}
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onNavigate(link.path);
+                }}
+                className="flex items-center justify-between px-4 py-3 rounded-xl text-sm font-semibold text-slate-200 hover:bg-white/5"
+              >
+                <span className="flex items-center gap-2">
+                  {link.highlight && <Flame className="w-4 h-4 text-rose-500 fill-rose-500" />}
+                  {link.name}
+                </span>
+                <ChevronRight className="w-4 h-4 text-slate-500" />
+              </button>
+            ))}
+            {isAdmin && (
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onNavigate('/admin');
+                }}
+                className="flex items-center justify-between px-4 py-3 rounded-xl text-sm font-semibold text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 mt-2"
+              >
+                <span className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4" />
+                  {t('nav.adminPanel')}
+                </span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </header>
   );
 };

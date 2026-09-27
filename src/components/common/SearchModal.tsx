@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Search, X, Smartphone, ArrowRight } from 'lucide-react';
 import { Product } from '../../types/index.ts';
 import { api } from '../../services/api.ts';
+import { useLanguage } from '../../context/LanguageContext.tsx';
 
 interface SearchModalProps {
   isOpen: boolean;
@@ -11,6 +12,7 @@ interface SearchModalProps {
 }
 
 export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, onSelectProduct }) => {
+  const { t } = useLanguage();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -19,11 +21,11 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, onSel
   const quickPicks = [
     'iPhone',
     'Samsung',
-    'Pixel',
+    'Google',
+    'Xiaomi',
     '256GB',
-    'Gaming phone',
-    'Best camera',
-    'Under $1000',
+    '512GB',
+    '1000$ gacha',
   ];
 
   useEffect(() => {
@@ -40,9 +42,6 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, onSel
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         if (isOpen) onClose();
-        else {
-          // Trigger open via custom event or prop
-        }
       }
       if (e.key === 'Escape' && isOpen) {
         onClose();
@@ -66,7 +65,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, onSel
         let minPrice: number | undefined;
         let maxPrice: number | undefined;
 
-        if (cleanQuery.toLowerCase().includes('under $1000') || cleanQuery.toLowerCase().includes('under 1000')) {
+        if (cleanQuery.toLowerCase().includes('under $1000') || cleanQuery.toLowerCase().includes('under 1000') || cleanQuery.toLowerCase().includes('1000$ gacha')) {
           maxPrice = 1000;
           cleanQuery = '';
         }
@@ -116,7 +115,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, onSel
                 type="text"
                 value={query}
                 onChange={e => setQuery(e.target.value)}
-                placeholder="Search smartphones, brands or features... (e.g. iPhone, 256GB, Titanium)"
+                placeholder={t('nav.searchPlaceholder')}
                 className="w-full bg-transparent text-white placeholder-slate-400 text-base sm:text-lg focus:outline-none"
               />
               {query && (
@@ -134,7 +133,6 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, onSel
 
             {/* Quick Suggestions Chips */}
             <div className="px-4 py-2.5 bg-black/30 border-b border-white/5 flex items-center gap-2 overflow-x-auto text-xs no-scrollbar">
-              <span className="text-slate-400 shrink-0">Popular:</span>
               {quickPicks.map(tag => (
                 <button
                   key={tag}
@@ -151,7 +149,6 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, onSel
               {isLoading ? (
                 <div className="py-12 flex flex-col items-center justify-center gap-3 text-slate-400">
                   <div className="w-6 h-6 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
-                  <span className="text-sm">Searching NOVA catalogue...</span>
                 </div>
               ) : results.length > 0 ? (
                 <div className="divide-y divide-white/5">
@@ -179,7 +176,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, onSel
                             </span>
                             {prod.deal && (
                               <span className="px-1.5 py-0.2 text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded">
-                                SALE
+                                {t('product.hotDeal')}
                               </span>
                             )}
                           </div>
@@ -206,12 +203,12 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, onSel
               ) : query.trim() ? (
                 <div className="py-12 text-center text-slate-400">
                   <Smartphone className="w-8 h-8 mx-auto mb-2 text-slate-500" />
-                  <p className="text-sm font-medium text-slate-300">No smartphones found matching &ldquo;{query}&rdquo;</p>
-                  <p className="text-xs text-slate-500 mt-1">Try searching for &ldquo;Apple&rdquo;, &ldquo;Galaxy&rdquo;, &ldquo;Titanium&rdquo; or &ldquo;120Hz&rdquo;</p>
+                  <p className="text-sm font-medium text-slate-300">{t('catalog.noResults')}</p>
+                  <p className="text-xs text-slate-500 mt-1">{t('catalog.noResultsSub')}</p>
                 </div>
               ) : (
                 <div className="py-8 px-4 text-center text-xs text-slate-500">
-                  Start typing to browse 20+ next-gen flagship smartphones
+                  {t('nav.searchPlaceholder')}
                 </div>
               )}
             </div>

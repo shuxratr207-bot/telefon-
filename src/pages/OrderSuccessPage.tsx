@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { motion } from 'motion/react';
 import { CheckCircle2, ArrowRight, Package, Calendar, ShieldCheck, Truck } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { useLanguage } from '../context/LanguageContext.tsx';
 
 interface OrderSuccessPageProps {
   orderData: any;
@@ -9,6 +10,8 @@ interface OrderSuccessPageProps {
 }
 
 export const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({ orderData, onNavigate }) => {
+  const { t } = useLanguage();
+
   useEffect(() => {
     // Launch celebratory confetti burst
     confetti({
@@ -55,13 +58,13 @@ export const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({ orderData, o
         {/* Headline */}
         <div>
           <span className="text-xs uppercase tracking-widest font-extrabold text-cyan-400">
-            TRANSACTION AUTHORIZED
+            {t('success.badge')}
           </span>
           <h1 className="text-3xl sm:text-4xl font-extrabold text-white font-['Space_Grotesk'] mt-1">
-            ORDER CONFIRMED
+            {t('success.title')}
           </h1>
           <p className="text-sm text-slate-300 mt-2 max-w-sm mx-auto">
-            Thank you for choosing NOVA MOBILE. Your flagship hardware is being prepared for express delivery.
+            {t('success.subtitle')}
           </p>
         </div>
 
@@ -70,7 +73,7 @@ export const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({ orderData, o
           <div className="flex justify-between items-center pb-2 border-b border-white/5">
             <span className="text-slate-400 flex items-center gap-1.5">
               <Package className="w-4 h-4 text-cyan-400" />
-              Order Number:
+              {t('success.orderId')}:
             </span>
             <span className="font-mono font-bold text-white text-base">{orderNumber}</span>
           </div>
@@ -78,7 +81,7 @@ export const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({ orderData, o
           <div className="flex justify-between items-center pb-2 border-b border-white/5">
             <span className="text-slate-400 flex items-center gap-1.5">
               <Calendar className="w-4 h-4 text-indigo-400" />
-              Estimated Delivery:
+              {t('trust.deliveryTitle')}:
             </span>
             <span className="font-semibold text-white">{deliveryDate}</span>
           </div>
@@ -86,16 +89,42 @@ export const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({ orderData, o
           <div className="flex justify-between items-center">
             <span className="text-slate-400 flex items-center gap-1.5">
               <Truck className="w-4 h-4 text-emerald-400" />
-              Total Amount:
+              {t('success.totalPaid')}:
             </span>
             <span className="font-extrabold text-cyan-400 text-lg">${Number(total).toLocaleString()}</span>
           </div>
+
+          {Array.isArray(orderData?.items) && orderData.items.length > 0 && (
+            <div className="pt-3 border-t border-white/10 space-y-2">
+              {orderData.items.map((it: any, idx: number) => (
+                <div key={idx} className="flex items-center justify-between gap-2 text-xs bg-white/[0.02] p-2.5 rounded-xl border border-white/5">
+                  <div className="min-w-0">
+                    <p className="font-bold text-white truncate">{it.productName || it.name}</p>
+                    <p className="text-[11px] text-slate-400">
+                      {[
+                        it.color && `Rang: ${it.color}`,
+                        it.storage && `Xotira: ${it.storage}`,
+                        it.ram && `RAM: ${it.ram}`,
+                        it.model && `Versiya: ${it.model}`,
+                      ]
+                        .filter(Boolean)
+                        .join(' • ')}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className="font-bold text-cyan-400">${Number(it.price).toLocaleString()}</span>
+                    <span className="text-slate-500 block text-[10px]">× {it.quantity}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Guarantee notice */}
         <div className="flex items-center justify-center gap-2 text-xs text-slate-400">
           <ShieldCheck className="w-4 h-4 text-cyan-400" />
-          <span>A tracking notification with official warranty credentials has been sent.</span>
+          <span>{t('detail.warrantyInfo')}</span>
         </div>
 
         {/* Action Buttons */}
@@ -104,14 +133,14 @@ export const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({ orderData, o
             onClick={() => onNavigate('/orders')}
             className="w-full sm:w-auto px-6 py-3 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-white font-semibold text-xs transition-all"
           >
-            View Order History
+            {t('success.viewOrders')}
           </button>
 
           <button
-            onClick={() => onNavigate('/phones')}
+            onClick={() => onNavigate('/')}
             className="w-full sm:w-auto px-8 py-3 rounded-xl bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 hover:brightness-110 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-cyan-500/25 transition-all flex items-center justify-center gap-2"
           >
-            <span>CONTINUE SHOPPING</span>
+            <span>{t('success.backHome')}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>

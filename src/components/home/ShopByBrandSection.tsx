@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { ArrowRight, Sparkles } from 'lucide-react';
 import { Brand } from '../../types/index.ts';
+import { useLanguage } from '../../context/LanguageContext.tsx';
 
 interface ShopByBrandSectionProps {
   brands: Brand[];
@@ -9,6 +10,8 @@ interface ShopByBrandSectionProps {
 }
 
 export const ShopByBrandSection: React.FC<ShopByBrandSectionProps> = ({ brands, onNavigate }) => {
+  const { t } = useLanguage();
+
   return (
     <section className="py-20 relative">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -16,20 +19,20 @@ export const ShopByBrandSection: React.FC<ShopByBrandSectionProps> = ({ brands, 
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950/40 border border-cyan-500/30 text-cyan-400 text-xs font-semibold mb-2">
               <Sparkles className="w-3 h-3" />
-              <span>OFFICIAL FLAGSHIP PARTNERS</span>
+              <span>{t('home.brandsBadge')}</span>
             </div>
             <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white font-['Space_Grotesk']">
-              Shop by Brand
+              {t('home.brandsTitle')}
             </h2>
             <p className="text-sm text-slate-400 mt-1 max-w-lg">
-              Explore authentic smartphones engineered by the world&apos;s leading hardware innovators.
+              {t('home.brandsSub')}
             </p>
           </div>
           <button
             onClick={() => onNavigate('/brands')}
             className="inline-flex items-center gap-2 text-sm font-semibold text-cyan-400 hover:text-cyan-300 transition-colors"
           >
-            <span>View All Brands</span>
+            <span>{t('home.viewAllBrands')}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>
@@ -44,7 +47,7 @@ export const ShopByBrandSection: React.FC<ShopByBrandSectionProps> = ({ brands, 
               viewport={{ once: true }}
               transition={{ delay: idx * 0.05 }}
               whileHover={{ y: -4 }}
-              onClick={() => onNavigate(`/phones?brand=${brand.name}`)}
+              onClick={() => onNavigate(`/phones?brand=${encodeURIComponent(brand.name)}`)}
               className="group relative rounded-2xl bg-[#0d0f17]/80 border border-white/10 hover:border-cyan-500/40 p-5 cursor-pointer backdrop-blur-xl transition-all shadow-lg overflow-hidden flex flex-col justify-between"
             >
               {/* Glow background */}
@@ -59,7 +62,7 @@ export const ShopByBrandSection: React.FC<ShopByBrandSectionProps> = ({ brands, 
                   />
                 </div>
                 <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-white/5 text-slate-400 border border-white/5">
-                  {brand.productCount || 0} Models
+                  {brand.productCount || 0} {t('home.modelsCount')}
                 </span>
               </div>
 
@@ -73,7 +76,7 @@ export const ShopByBrandSection: React.FC<ShopByBrandSectionProps> = ({ brands, 
               </div>
 
               <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-xs font-semibold text-slate-500 group-hover:text-cyan-400 relative z-10 transition-colors">
-                <span>Explore catalog</span>
+                <span>{t('brands.exploreModels')}</span>
                 <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
               </div>
             </motion.div>

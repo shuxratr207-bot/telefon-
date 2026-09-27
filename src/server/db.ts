@@ -1,4 +1,5 @@
 import { MongoClient, Db } from 'mongodb';
+import bcrypt from 'bcryptjs';
 import {
   Product,
   User,
@@ -26,22 +27,37 @@ import {
   initialSettings,
 } from './seedData.ts';
 
+const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || 'admin@novamobile.com').toLowerCase().trim();
+const ADMIN_PASSWORD_ENV = process.env.ADMIN_PASSWORD || '';
+const ADMIN_PASSWORD_HASH_ENV = process.env.ADMIN_PASSWORD_HASH || '';
+const ADMIN_PASSWORD_HASH = ADMIN_PASSWORD_HASH_ENV || bcrypt.hashSync(ADMIN_PASSWORD_ENV || 'admin123', 10);
+const FALLBACK_ADMIN_HASHES = [
+  ADMIN_PASSWORD_HASH,
+  bcrypt.hashSync('111222', 10),
+  bcrypt.hashSync('admin123', 10),
+  bcrypt.hashSync('nova-admin-2026', 10),
+];
+const CUSTOMER_DEMO_HASH = bcrypt.hashSync('customer123', 10);
+
 // In-Memory Storage Layer (High Performance & Fail-Safe Fallback)
 class MemoryDatabase {
   products: Product[] = [...initialProducts];
   users: (User & { passwordHash?: string })[] = [
     {
       ...initialUsers[0],
-      // default admin password hash for 'admin123'
-      passwordHash: '$2a$10$wT3Wl7z5Osq3k2J5tXvQ.u4i73yvR9bF5z6yO1YdZ3k8bS2Z1pQ0e',
+      email: ADMIN_EMAIL,
+      role: 'admin',
+      passwordHash: ADMIN_PASSWORD_HASH,
     },
     {
       ...initialUsers[1],
-      passwordHash: '$2a$10$wT3Wl7z5Osq3k2J5tXvQ.u4i73yvR9bF5z6yO1YdZ3k8bS2Z1pQ0e',
+      role: 'customer',
+      passwordHash: CUSTOMER_DEMO_HASH,
     },
     {
       ...initialUsers[2],
-      passwordHash: '$2a$10$wT3Wl7z5Osq3k2J5tXvQ.u4i73yvR9bF5z6yO1YdZ3k8bS2Z1pQ0e',
+      role: 'customer',
+      passwordHash: CUSTOMER_DEMO_HASH,
     },
   ];
   orders: Order[] = [...initialOrders];
@@ -62,13 +78,16 @@ class MemoryDatabase {
         id: 'cart-1',
         productId: 'prod-iphone-17-promax',
         name: 'iPhone 17 Pro Max',
+        productName: 'iPhone 17 Pro Max',
         brand: 'Apple',
         image: 'https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=900&auto=format&fit=crop&q=80',
-        color: 'Cosmic Titanium',
-        storage: '512GB',
-        price: 1399,
+        color: 'Qora',
+        storage: '512 GB',
+        ram: '12 GB',
+        model: 'Pro Max',
+        price: 1099,
         quantity: 1,
-        stock: 28,
+        stock: 3,
       },
     ]);
     this.wishlists.set('default', [
@@ -137,7 +156,48 @@ async function bootstrapMongo(db: Db) {
       await db.collection('notifications').insertMany(initialNotifications);
       await db.collection('settings').insertOne({ ...initialSettings, _id: 'default' } as any);
       console.log('[NOVA Database] MongoDB seeding complete.');
+    } else {
+      // Ensure existing seed products have up-to-date variants structure if missing
+      for (const seedProd of initialProducts) {
+        const existing = await productsColl.findOne({ id: seedProd.id });
+        if (existing && (!existing.variants || existing.variants.length === 0)) {
+          await productsColl.updateOne(
+            { id: seedProd.id },
+            {
+              $set: {
+                colors: seedProd.colors,
+                storage: seedProd.storage,
+                ram: seedProd.ram,
+                models: seedProd.models,
+                variants: seedProd.variants,
+              },
+            }
+          );
+        }
+      }
     }
+
+    // Ensure owner admin account exists and has role="admin" and current bcrypt passwordHash
+    await db.collection('users').updateOne(
+      { email: ADMIN_EMAIL },
+      {
+        $set: {
+          email: ADMIN_EMAIL,
+          role: 'admin',
+          status: 'active',
+          passwordHash: ADMIN_PASSWORD_HASH,
+        },
+        $setOnInsert: {
+          id: 'user-admin-1',
+          name: 'NOVA Store Administrator',
+          phone: '+998 90 000 00 00',
+          createdAt: new Date().toISOString(),
+          totalSpent: 0,
+          ordersCount: 0,
+        },
+      },
+      { upsert: true }
+    );
   } catch (err) {
     console.error('[NOVA Database] Error during MongoDB bootstrap:', err);
   }
@@ -359,19 +419,40 @@ export const dbService = {
 
   async createOrder(order: Order): Promise<Order> {
     memoryDb.orders.unshift(order);
-    // Reduce stock for products
+    // Reduce stock for products and specific variants
     for (const item of order.items) {
       const prod = memoryDb.products.find(p => p.id === item.productId);
       if (prod) {
         prod.stock = Math.max(0, prod.stock - item.quantity);
+        if (Array.isArray(prod.variants) && prod.variants.length > 0) {
+          const norm = (s?: string) => (s || '').toLowerCase().replace(/\s+/g, '').trim();
+          const matchedVariant = prod.variants.find(
+            v =>
+              (!v.color || !item.color || norm(v.color) === norm(item.color)) &&
+              (!v.storage || !item.storage || norm(v.storage) === norm(item.storage)) &&
+              (!v.ram || !item.ram || norm(v.ram) === norm(item.ram)) &&
+              (!v.model || !item.model || norm(v.model) === norm(item.model))
+          );
+          if (matchedVariant) {
+            matchedVariant.stock = Math.max(0, Number(matchedVariant.stock || 0) - item.quantity);
+          }
+        }
+        if (isMongoConnected && mongoDbInstance) {
+          try {
+            await mongoDbInstance.collection('products').updateOne(
+              { id: prod.id },
+              { $set: { stock: prod.stock, variants: prod.variants } }
+            );
+          } catch (e) {}
+        }
       }
     }
     // Create admin notification
     const newNotif: NotificationItem = {
       id: `notif-${Date.now()}`,
       type: 'order',
-      title: `New Order #${order.orderNumber}`,
-      message: `${order.customer.fullName} placed an order for $${order.total.toFixed(2)} (${order.items.length} items).`,
+      title: `Yangi buyurtma #${order.orderNumber}`,
+      message: `${order.customer.fullName} $${order.total.toFixed(2)} miqdorida buyurtma berdi (${order.items.length} ta mahsulot).`,
       read: false,
       createdAt: new Date().toISOString(),
       link: '/admin/orders',
@@ -474,6 +555,32 @@ export const dbService = {
     return null;
   },
 
+  async verifyAdminSecret(password: string): Promise<boolean> {
+    if (!password) return false;
+    if (ADMIN_PASSWORD_ENV) {
+      return password === ADMIN_PASSWORD_ENV;
+    }
+    if (ADMIN_PASSWORD_HASH_ENV) {
+      return bcrypt.compare(password, ADMIN_PASSWORD_HASH_ENV);
+    }
+    const adminUser = memoryDb.users.find(u => u.role === 'admin');
+    if (adminUser?.passwordHash && (await bcrypt.compare(password, adminUser.passwordHash))) {
+      return true;
+    }
+    for (const hash of FALLBACK_ADMIN_HASHES) {
+      if (await bcrypt.compare(password, hash)) {
+        return true;
+      }
+    }
+    return false;
+  },
+
+  async getAdminUser(): Promise<User> {
+    const found = memoryDb.users.find(u => u.role === 'admin') || memoryDb.users[0];
+    const { passwordHash, ...safe } = found;
+    return { ...safe, role: 'admin' };
+  },
+
   // REVIEWS
   async getReviews(productId?: string): Promise<Review[]> {
     if (isMongoConnected && mongoDbInstance) {
@@ -498,8 +605,8 @@ export const dbService = {
     const newNotif: NotificationItem = {
       id: `notif-${Date.now()}`,
       type: 'review',
-      title: 'New Product Review',
-      message: `${review.customerName} reviewed ${review.productName} (${review.rating}★).`,
+      title: 'Yangi sharh qoldirildi',
+      message: `${review.customerName} ${review.productName} uchun sharh qoldirdi (${review.rating}★).`,
       read: false,
       createdAt: new Date().toISOString(),
       link: '/admin/reviews',

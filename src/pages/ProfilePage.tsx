@@ -1,25 +1,34 @@
-import React, { useState } from 'react';
-import { User, Package, Heart, Settings, ShieldCheck, LogOut, Save, ArrowRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Package, ShieldCheck, LogOut, Save, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.tsx';
 import { useWishlist } from '../context/WishlistContext.tsx';
 import { useToast } from '../context/ToastContext.tsx';
+import { useLanguage } from '../context/LanguageContext.tsx';
 
 interface ProfilePageProps {
   onNavigate: (path: string) => void;
+  initialMode?: 'login' | 'register';
 }
 
-export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
+export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate, initialMode = 'login' }) => {
   const { user, login, register, logout, updateUser, isAdmin } = useAuth();
   const { items: wishlistItems } = useWishlist();
   const { showToast } = useToast();
+  const { t } = useLanguage();
 
   // Authentication mode if guest
-  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [authMode, setAuthMode] = useState<'login' | 'register'>(initialMode);
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
+  const [authConfirmPassword, setAuthConfirmPassword] = useState('');
   const [authName, setAuthName] = useState('');
   const [authPhone, setAuthPhone] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    setAuthMode(initialMode);
+  }, [initialMode]);
 
   // Profile edit fields
   const [editName, setEditName] = useState(user?.name || '');
@@ -29,24 +38,57 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
   const [editRegion, setEditRegion] = useState(user?.region || '');
   const [activeTab, setActiveTab] = useState<'info' | 'wishlist'>('info');
 
+  useEffect(() => {
+    if (user) {
+      setEditName(user.name || '');
+      setEditPhone(user.phone || '');
+      setEditAddress(user.address || '');
+      setEditCity(user.city || '');
+      setEditRegion(user.region || '');
+    }
+  }, [user]);
+
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!authPassword) {
+      showToast(t('auth.fillRequired'), 'error');
+      return;
+    }
+    if (authMode === 'register' && authConfirmPassword && authPassword !== authConfirmPassword) {
+      showToast(t('auth.passwordMismatch'), 'error');
+      return;
+    }
     setIsSubmitting(true);
     try {
       if (authMode === 'login') {
-        await login(authEmail, authPassword);
-        showToast('Welcome back to NOVA MOBILE!', 'success');
+        if (!authEmail.trim()) {
+          showToast(t('auth.fillRequired'), 'error');
+          setIsSubmitting(false);
+          return;
+        }
+        const loggedUser = await login(authEmail.trim(), authPassword);
+        if (loggedUser.role === 'admin') {
+          showToast(t('auth.welcomeBack'), 'success');
+          onNavigate('/admin');
+          return;
+        }
+        showToast(t('auth.welcomeBack'), 'success');
       } else {
-        await register({
-          name: authName,
-          email: authEmail,
+        const registeredUser = await register({
+          name: authName.trim(),
+          email: authEmail.trim(),
           password: authPassword,
-          phone: authPhone,
+          phone: authPhone.trim(),
         });
-        showToast('Account registered and signed in!', 'success');
+        if (registeredUser.role === 'admin') {
+          showToast(t('auth.welcomeBack'), 'success');
+          onNavigate('/admin');
+          return;
+        }
+        showToast(t('auth.accountCreated'), 'success');
       }
     } catch (err: any) {
-      showToast(err.message || 'Authentication failed', 'error');
+      showToast(err.message || t('admin.state.error'), 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -62,20 +104,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
         city: editCity,
         region: editRegion,
       });
-      showToast('Profile updated successfully!', 'success');
+      showToast(t('auth.profileUpdated'), 'success');
     } catch (err: any) {
-      showToast(err.message || 'Failed to update profile', 'error');
-    }
-  };
-
-  const quickDemoLogin = async (role: 'admin' | 'customer') => {
-    if (role === 'admin') {
-      await login('admin@novamobile.com', 'admin123');
-      showToast('Logged in as Administrator', 'success');
-      onNavigate('/admin');
-    } else {
-      await login('sophia.chen@example.com', 'admin123');
-      showToast('Logged in as Sophia Chen (Customer)', 'success');
+      showToast(err.message || t('admin.state.error'), 'error');
     }
   };
 
@@ -86,64 +117,105 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
         <div className="max-w-md w-full bg-[#0d0f17] border border-cyan-500/20 rounded-3xl p-8 shadow-2xl space-y-6">
           <div className="text-center space-y-2">
             <h1 className="text-2xl font-extrabold text-white font-['Space_Grotesk']">
-              NOVA Ecosystem Sign In
+              {authMode === 'login' ? t('auth.signInTitle') : t('auth.signUpTitle')}
             </h1>
             <p className="text-xs text-slate-400">
-              Access your order history, saved flagships, and VIP member perks.
+              {t('auth.subtitle')}
             </p>
           </div>
 
-          {/* Mode Switcher */}
-          <div className="grid grid-cols-2 p-1 rounded-xl bg-black/40 border border-white/5">
+          {/* Mode Switcher: Kirish | Ro‘yxatdan o‘tish */}
+          <div className="grid grid-cols-2 gap-1.5 p-1.5 rounded-xl bg-black/50 border border-white/10">
             <button
-              onClick={() => setAuthMode('login')}
-              className={`py-2 text-xs font-bold rounded-lg transition-all ${
-                authMode === 'login' ? 'bg-cyan-500 text-black shadow' : 'text-slate-400'
+              type="button"
+              onClick={() => {
+                setAuthMode('login');
+                onNavigate('/signin');
+              }}
+              className={`py-2.5 px-3 text-xs font-bold rounded-lg transition-all ${
+                authMode === 'login'
+                  ? 'bg-cyan-500 text-black shadow-md shadow-cyan-500/20'
+                  : 'text-slate-400 hover:text-white'
               }`}
             >
-              Sign In
+              {t('auth.signInTab')}
             </button>
             <button
-              onClick={() => setAuthMode('register')}
-              className={`py-2 text-xs font-bold rounded-lg transition-all ${
-                authMode === 'register' ? 'bg-cyan-500 text-black shadow' : 'text-slate-400'
+              type="button"
+              onClick={() => {
+                setAuthMode('register');
+                onNavigate('/signup');
+              }}
+              className={`py-2.5 px-3 text-xs font-bold rounded-lg transition-all ${
+                authMode === 'register'
+                  ? 'bg-cyan-500 text-black shadow-md shadow-cyan-500/20'
+                  : 'text-slate-400 hover:text-white'
               }`}
             >
-              Create Account
+              {t('auth.signUpTab')}
             </button>
           </div>
 
           <form onSubmit={handleAuthSubmit} className="space-y-4">
             {authMode === 'register' && (
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Full Name</label>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  {t('auth.fullName')} *
+                </label>
                 <input
                   type="text"
-                  required
                   value={authName}
                   onChange={e => setAuthName(e.target.value)}
-                  placeholder="e.g. Liam Sterling"
+                  placeholder="Azizbek Karimov"
                   className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-sm text-white focus:outline-none focus:border-cyan-400"
                 />
               </div>
             )}
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Email Address</label>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">
+                {t('auth.email')} *
+              </label>
               <input
                 type="email"
-                required
                 value={authEmail}
                 onChange={e => setAuthEmail(e.target.value)}
-                placeholder="name@example.com"
+                placeholder="mijoz@novamobile.uz"
                 className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-sm text-white focus:outline-none focus:border-cyan-400"
               />
             </div>
 
+            {authMode === 'register' && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  {t('auth.phone')} *
+                </label>
+                <input
+                  type="tel"
+                  value={authPhone}
+                  onChange={e => setAuthPhone(e.target.value)}
+                  placeholder="+998 90 123 45 67"
+                  className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-sm text-white focus:outline-none focus:border-cyan-400"
+                />
+              </div>
+            )}
+
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Password</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-slate-300">
+                  {t('auth.password')} *
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-cyan-400 hover:text-cyan-300 transition-colors"
+                >
+                  {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  <span>{showPassword ? t('auth.hidePassword') : t('auth.showPassword')}</span>
+                </button>
+              </div>
               <input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 required
                 value={authPassword}
                 onChange={e => setAuthPassword(e.target.value)}
@@ -154,12 +226,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
 
             {authMode === 'register' && (
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Phone Number</label>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  {t('auth.confirmPassword')} *
+                </label>
                 <input
-                  type="tel"
-                  value={authPhone}
-                  onChange={e => setAuthPhone(e.target.value)}
-                  placeholder="+1 (555) 123-4567"
+                  type={showPassword ? 'text' : 'password'}
+                  value={authConfirmPassword}
+                  onChange={e => setAuthConfirmPassword(e.target.value)}
+                  placeholder="••••••••"
                   className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-sm text-white focus:outline-none focus:border-cyan-400"
                 />
               </div>
@@ -171,34 +245,23 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
               className="w-full py-3.5 rounded-xl bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 hover:brightness-110 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-cyan-500/25 transition-all"
             >
               {isSubmitting
-                ? 'Processing...'
+                ? t('checkout.processing')
                 : authMode === 'login'
-                ? 'Sign In to Account'
-                : 'Create NOVA Account'}
+                ? t('auth.signInBtn')
+                : t('auth.signUpBtn')}
             </button>
           </form>
 
-          {/* Quick Demo Access Bar */}
-          <div className="pt-4 border-t border-white/10 text-center space-y-2">
-            <span className="text-[11px] text-slate-500 block uppercase tracking-wider font-semibold">
-              Instant 1-Click Demo Profiles
-            </span>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => quickDemoLogin('customer')}
-                className="py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-slate-300"
-              >
-                Customer Profile
-              </button>
-              <button
-                type="button"
-                onClick={() => quickDemoLogin('admin')}
-                className="py-2 px-3 rounded-xl bg-indigo-950/40 hover:bg-indigo-950/60 border border-indigo-500/30 text-xs font-bold text-indigo-300"
-              >
-                Admin Profile
-              </button>
-            </div>
+          {/* Subtle, separate link to Admin Login below Sign In / Sign Up */}
+          <div className="pt-3 border-t border-white/5 text-center">
+            <button
+              type="button"
+              onClick={() => onNavigate('/admin/login')}
+              className="text-[11px] font-medium text-slate-500 hover:text-slate-300 transition-colors inline-flex items-center gap-1.5"
+            >
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>{t('auth.adminLoginLink')}</span>
+            </button>
           </div>
         </div>
       </div>
@@ -221,11 +284,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                 <h1 className="text-2xl font-bold text-white">{user.name}</h1>
                 {isAdmin ? (
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                    Administrator
+                    {t('nav.storeAdmin')}
                   </span>
                 ) : (
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-                    VIP Customer
+                    {t('nav.vipCustomer')}
                   </span>
                 )}
               </div>
@@ -240,7 +303,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                 className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-600/30 transition-all flex items-center gap-2"
               >
                 <ShieldCheck className="w-4 h-4" />
-                <span>Admin Dashboard</span>
+                <span>{t('nav.adminPanel')}</span>
               </button>
             )}
             <button
@@ -248,12 +311,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
               className="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 text-xs font-semibold text-white transition-all flex items-center gap-2"
             >
               <Package className="w-4 h-4 text-cyan-400" />
-              <span>Orders</span>
+              <span>{t('nav.orders')}</span>
             </button>
             <button
               onClick={logout}
               className="p-2.5 rounded-xl border border-rose-500/30 text-rose-400 hover:bg-rose-950/30 transition-colors"
-              title="Sign Out"
+              title={t('nav.signout')}
             >
               <LogOut className="w-4 h-4" />
             </button>
@@ -270,7 +333,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                 : 'border-transparent text-slate-400 hover:text-white'
             }`}
           >
-            Saved Delivery Information
+            {t('auth.savedDelivery')}
           </button>
           <button
             onClick={() => setActiveTab('wishlist')}
@@ -280,18 +343,18 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                 : 'border-transparent text-slate-400 hover:text-white'
             }`}
           >
-            Saved Wishlist ({wishlistItems.length})
+            {t('auth.savedWishlist')} ({wishlistItems.length})
           </button>
         </div>
 
         {/* Tab Content */}
         {activeTab === 'info' ? (
           <form onSubmit={handleUpdateProfile} className="bg-[#0d0f17] border border-white/10 rounded-3xl p-6 sm:p-8 space-y-6">
-            <h3 className="text-base font-bold text-white mb-2">Edit Account &amp; Shipping Profile</h3>
+            <h3 className="text-base font-bold text-white mb-2">{t('auth.editProfileTitle')}</h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-1.5">Full Name</label>
+                <label className="block text-xs font-semibold text-slate-400 mb-1.5">{t('checkout.fullName')}</label>
                 <input
                   type="text"
                   value={editName}
@@ -301,45 +364,42 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-1.5">Phone Number</label>
+                <label className="block text-xs font-semibold text-slate-400 mb-1.5">{t('checkout.phone')}</label>
                 <input
                   type="tel"
                   value={editPhone}
                   onChange={e => setEditPhone(e.target.value)}
-                  placeholder="+1 (555) 000-0000"
+                  placeholder="+998 90 123 45 67"
                   className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-sm text-white focus:outline-none focus:border-cyan-400"
                 />
               </div>
 
               <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold text-slate-400 mb-1.5">Street Address</label>
+                <label className="block text-xs font-semibold text-slate-400 mb-1.5">{t('checkout.address')}</label>
                 <input
                   type="text"
                   value={editAddress}
                   onChange={e => setEditAddress(e.target.value)}
-                  placeholder="Street and apartment number"
                   className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-sm text-white focus:outline-none focus:border-cyan-400"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-1.5">City</label>
+                <label className="block text-xs font-semibold text-slate-400 mb-1.5">{t('checkout.city')}</label>
                 <input
                   type="text"
                   value={editCity}
                   onChange={e => setEditCity(e.target.value)}
-                  placeholder="City"
                   className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-sm text-white focus:outline-none focus:border-cyan-400"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-1.5">Region / State</label>
+                <label className="block text-xs font-semibold text-slate-400 mb-1.5">{t('checkout.region')}</label>
                 <input
                   type="text"
                   value={editRegion}
                   onChange={e => setEditRegion(e.target.value)}
-                  placeholder="State"
                   className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-sm text-white focus:outline-none focus:border-cyan-400"
                 />
               </div>
@@ -351,25 +411,25 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                 className="px-6 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black text-xs font-bold uppercase transition-all flex items-center gap-2"
               >
                 <Save className="w-4 h-4" />
-                <span>Save Profile Changes</span>
+                <span>{t('auth.saveChanges')}</span>
               </button>
             </div>
           </form>
         ) : (
           <div className="bg-[#0d0f17] border border-white/10 rounded-3xl p-6 sm:p-8">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-base font-bold text-white">Your Saved Wishlist</h3>
+              <h3 className="text-base font-bold text-white">{t('wishlist.title')}</h3>
               <button
                 onClick={() => onNavigate('/wishlist')}
                 className="text-xs text-cyan-400 hover:underline flex items-center gap-1"
               >
-                <span>Full Wishlist Page</span>
+                <span>{t('home.viewAll')}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
 
             {wishlistItems.length === 0 ? (
-              <p className="text-xs text-slate-400 py-8 text-center">No saved devices yet.</p>
+              <p className="text-xs text-slate-400 py-8 text-center">{t('wishlist.emptyTitle')}</p>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {wishlistItems.map(item => (

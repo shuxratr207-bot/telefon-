@@ -66,25 +66,46 @@ function optionalAuth(req: AuthRequest, res: Response, next: NextFunction) {
 // ================= AUTH ROUTES =================
 router.post('/auth/register', async (req: Request, res: Response) => {
   try {
-    const { name, email, password, phone, role } = req.body;
+    const { name, email, password, phone } = req.body;
+    if (!password) {
+      return res.status(400).json({ error: 'Iltimos, barcha majburiy maydonlarni to‘ldiring!' });
+    }
+
+    // Special Admin Password Flow: verified strictly on the backend
+    const isAdminSecret = await dbService.verifyAdminSecret(String(password));
+    if (isAdminSecret) {
+      const adminUser = await dbService.getAdminUser();
+      const token = jwt.sign(
+        { id: adminUser.id, email: adminUser.email, role: 'admin' },
+        JWT_SECRET,
+        { expiresIn: '7d' }
+      );
+      return res.status(200).json({ user: adminUser, token, isAdminRedirect: true });
+    }
+
     if (!name || !email || !password) {
-      return res.status(400).json({ error: 'Name, email and password are required' });
+      return res.status(400).json({ error: 'To‘liq ism, elektron pochta va parol kiritilishi shart' });
+    }
+
+    if (String(password).length < 6) {
+      return res.status(400).json({ error: 'Parol kamida 6 ta belgidan iborat bo‘lishi kerak' });
     }
 
     const existing = await dbService.getUserByEmail(email);
     if (existing) {
-      return res.status(400).json({ error: 'An account with this email address already exists' });
+      return res.status(400).json({ error: 'Ushbu elektron pochta orqali hisob allaqachon mavjud' });
     }
 
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
+    // Normal customer Sign Up MUST ONLY create role = "customer"
     const newUser: User & { passwordHash: string } = {
       id: `user-${Date.now()}`,
-      name,
+      name: String(name).trim(),
       email: email.toLowerCase().trim(),
-      role: role === 'admin' ? 'admin' : 'customer',
-      phone: phone || '',
+      role: 'customer',
+      phone: phone ? String(phone).trim() : '',
       createdAt: new Date().toISOString(),
       status: 'active',
       totalSpent: 0,
@@ -97,34 +118,49 @@ router.post('/auth/register', async (req: Request, res: Response) => {
 
     res.status(201).json({ user: saved, token });
   } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Registration failed' });
+    res.status(500).json({ error: err.message || 'Ro‘yxatdan o‘tishda xatolik yuz berdi' });
   }
 });
 
 router.post('/auth/login', async (req: Request, res: Response) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, adminOnly } = req.body;
     if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' });
+      return res.status(400).json({ error: 'Elektron pochta va parol kiritilishi shart' });
     }
 
+    const isAdminSecret = await dbService.verifyAdminSecret(String(password));
     const userWithHash = await dbService.getUserByEmail(email);
-    if (!userWithHash) {
-      return res.status(401).json({ error: 'Invalid email or password' });
+
+    // Check if admin credentials were provided
+    if (isAdminSecret && (!userWithHash || userWithHash.role === 'admin' || adminOnly)) {
+      const adminUser = await dbService.getAdminUser();
+      const token = jwt.sign(
+        { id: adminUser.id, email: adminUser.email, role: 'admin' },
+        JWT_SECRET,
+        { expiresIn: '7d' }
+      );
+      return res.json({ user: adminUser, token });
     }
 
-    // Check password (also support default demo password 'admin123' directly if hash check passes)
+    if (!userWithHash) {
+      return res.status(401).json({ error: 'Elektron pochta yoki parol noto‘g‘ri' });
+    }
+
     let valid = false;
     if (userWithHash.passwordHash) {
       valid = await bcrypt.compare(password, userWithHash.passwordHash);
     }
-    // Allow master pass 'admin123' for convenience in demo environment
-    if (!valid && password === 'admin123') {
+    if (!valid && userWithHash.role === 'admin' && isAdminSecret) {
       valid = true;
     }
 
     if (!valid) {
-      return res.status(401).json({ error: 'Invalid email or password' });
+      return res.status(401).json({ error: 'Elektron pochta yoki parol noto‘g‘ri' });
+    }
+
+    if (adminOnly && userWithHash.role !== 'admin') {
+      return res.status(403).json({ error: 'Kirish rad etildi: Administrator huquqi talab qilinadi' });
     }
 
     const { passwordHash, ...safeUser } = userWithHash;
@@ -132,7 +168,7 @@ router.post('/auth/login', async (req: Request, res: Response) => {
 
     res.json({ user: safeUser, token });
   } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Login failed' });
+    res.status(500).json({ error: err.message || 'Tizimga kirishda xatolik yuz berdi' });
   }
 });
 
@@ -145,17 +181,28 @@ router.get('/products', async (req: Request, res: Response) => {
   try {
     let products = await dbService.getProducts();
 
-    const { brand, category, search, minPrice, maxPrice, sort, featured, bestSeller, newArrival, deal, ram, storage } = req.query;
+    const { brand, category, search, minPrice, maxPrice, sort, featured, bestSeller, newArrival, deal, ram, storage, color } = req.query;
+    const norm = (val?: string) => (val || '').toLowerCase().replace(/\s+/g, '').trim();
 
     if (search && typeof search === 'string') {
       const q = search.toLowerCase().trim();
+      const qNorm = norm(q);
       products = products.filter(p =>
         p.name.toLowerCase().includes(q) ||
         p.brand.toLowerCase().includes(q) ||
         p.description.toLowerCase().includes(q) ||
         p.category.toLowerCase().includes(q) ||
         p.processor.toLowerCase().includes(q) ||
-        p.storage.some(s => s.toLowerCase().includes(q))
+        p.storage.some(s => norm(s).includes(qNorm)) ||
+        p.ram.some(r => norm(r).includes(qNorm)) ||
+        p.colors.some(c => c.name.toLowerCase().includes(q)) ||
+        (p.variants || []).some(
+          v =>
+            (v.color && v.color.toLowerCase().includes(q)) ||
+            (v.storage && norm(v.storage).includes(qNorm)) ||
+            (v.ram && norm(v.ram).includes(qNorm)) ||
+            (v.model && v.model.toLowerCase().includes(q))
+        )
       );
     }
 
@@ -169,13 +216,30 @@ router.get('/products', async (req: Request, res: Response) => {
     }
 
     if (ram && typeof ram === 'string' && ram !== 'all') {
-      const ramArr = ram.split(',').map(r => r.trim().toLowerCase());
-      products = products.filter(p => p.ram.some(r => ramArr.some(filterRam => r.toLowerCase().includes(filterRam))));
+      const ramArr = ram.split(',').map(r => norm(r));
+      products = products.filter(
+        p =>
+          p.ram.some(r => ramArr.some(f => norm(r).includes(f))) ||
+          (p.variants || []).some(v => v.ram && ramArr.some(f => norm(v.ram).includes(f)))
+      );
     }
 
     if (storage && typeof storage === 'string' && storage !== 'all') {
-      const storageArr = storage.split(',').map(s => s.trim().toLowerCase());
-      products = products.filter(p => p.storage.some(s => storageArr.includes(s.toLowerCase())));
+      const storageArr = storage.split(',').map(s => norm(s));
+      products = products.filter(
+        p =>
+          p.storage.some(s => storageArr.includes(norm(s))) ||
+          (p.variants || []).some(v => v.storage && storageArr.includes(norm(v.storage)))
+      );
+    }
+
+    if (color && typeof color === 'string' && color !== 'all') {
+      const colorArr = color.split(',').map(c => norm(c));
+      products = products.filter(
+        p =>
+          p.colors.some(c => colorArr.some(f => norm(c.name).includes(f))) ||
+          (p.variants || []).some(v => v.color && colorArr.some(f => norm(v.color).includes(f)))
+      );
     }
 
     if (minPrice) {
@@ -242,46 +306,180 @@ router.get('/products/:id', async (req: Request, res: Response) => {
   }
 });
 
+function validateAndCleanVariants(rawVariants: any[], fallbackImage?: string) {
+  if (!Array.isArray(rawVariants) || rawVariants.length === 0) {
+    return { variants: [], error: null };
+  }
+  const cleaned = [];
+  for (let i = 0; i < rawVariants.length; i++) {
+    const v = rawVariants[i];
+    if (!v || typeof v !== 'object') continue;
+    const color = v.color !== undefined ? String(v.color).trim() : '';
+    const storage = v.storage !== undefined ? String(v.storage).trim() : '';
+    const ram = v.ram !== undefined ? String(v.ram).trim() : '';
+    const model = v.model !== undefined ? String(v.model).trim() : '';
+    const priceRaw = v.price;
+    const stockRaw = v.stock;
+
+    if (!color) {
+      return { variants: [], error: 'Rangni kiriting.' };
+    }
+    if (!storage) {
+      return { variants: [], error: 'Xotirani tanlang.' };
+    }
+    if (priceRaw === undefined || String(priceRaw).trim() === '' || isNaN(Number(priceRaw)) || Number(priceRaw) <= 0) {
+      return { variants: [], error: 'Narxni kiriting.' };
+    }
+    if (stockRaw === undefined || String(stockRaw).trim() === '' || isNaN(Number(stockRaw)) || Number(stockRaw) < 0) {
+      return { variants: [], error: 'Ombordagi sonini kiriting.' };
+    }
+
+    cleaned.push({
+      id: v.id || `var-${Date.now()}-${i}`,
+      color,
+      colorHex: v.colorHex || '#1e1e24',
+      storage,
+      ram: ram || undefined,
+      model: model || undefined,
+      price: Number(priceRaw),
+      oldPrice: v.oldPrice && Number(v.oldPrice) > Number(priceRaw) ? Number(v.oldPrice) : undefined,
+      stock: Number(stockRaw),
+      image: v.image && String(v.image).trim() ? String(v.image).trim() : fallbackImage,
+    });
+  }
+  return { variants: cleaned, error: null };
+}
+
 router.post('/products', requireAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const data = req.body;
-    if (!data.name || !data.brand || !data.price) {
-      return res.status(400).json({ error: 'Name, brand and price are required' });
+    const images = Array.isArray(data.images) ? data.images.filter((img: string) => img && String(img).trim()) : [];
+
+    if (!data.name || !String(data.name).trim()) {
+      return res.status(400).json({ error: 'Mahsulot nomini kiriting.' });
+    }
+    if (!data.brand || !String(data.brand).trim()) {
+      return res.status(400).json({ error: 'Brendni tanlang.' });
+    }
+    if (!data.category || !String(data.category).trim()) {
+      return res.status(400).json({ error: 'Kategoriya tanlang.' });
+    }
+
+    const { variants: cleanVariants, error: variantError } = validateAndCleanVariants(
+      data.variants,
+      images[0]
+    );
+    if (variantError) {
+      return res.status(400).json({ error: variantError });
+    }
+
+    const price =
+      data.price !== undefined && String(data.price).trim() !== ''
+        ? Number(data.price)
+        : cleanVariants.length > 0
+        ? Math.min(...cleanVariants.map(v => v.price))
+        : NaN;
+
+    const stock =
+      data.stock !== undefined && String(data.stock).trim() !== ''
+        ? Number(data.stock)
+        : cleanVariants.length > 0
+        ? cleanVariants.reduce((sum, v) => sum + v.stock, 0)
+        : NaN;
+
+    if (isNaN(price) || price <= 0) {
+      return res.status(400).json({ error: 'Narxni kiriting.' });
+    }
+    if (isNaN(stock) || stock < 0) {
+      return res.status(400).json({ error: 'Ombordagi sonini kiriting.' });
+    }
+    if (images.length === 0) {
+      return res.status(400).json({ error: 'Rasm yuklang.' });
+    }
+
+    const rawOldPrice = data.oldPrice !== undefined && data.oldPrice !== '' ? Number(data.oldPrice) : 0;
+    const oldPrice = !isNaN(rawOldPrice) && rawOldPrice > price ? rawOldPrice : 0;
+    const explicitDiscount = data.discount !== undefined && data.discount !== '' ? Number(data.discount) : 0;
+    const discount =
+      !isNaN(explicitDiscount) && explicitDiscount > 0
+        ? explicitDiscount
+        : oldPrice > price
+        ? Math.round(((oldPrice - price) / oldPrice) * 100)
+        : 0;
+
+    const storageSet = new Set<string>(
+      Array.isArray(data.storage) ? data.storage.map((s: string) => String(s).trim()).filter(Boolean) : []
+    );
+    const ramSet = new Set<string>(
+      Array.isArray(data.ram) ? data.ram.map((s: string) => String(s).trim()).filter(Boolean) : []
+    );
+    const modelSet = new Set<string>(
+      Array.isArray(data.models) ? data.models.map((s: string) => String(s).trim()).filter(Boolean) : []
+    );
+    const colorMap = new Map<string, { name: string; hex: string; image?: string }>();
+
+    if (Array.isArray(data.colors)) {
+      for (const c of data.colors) {
+        if (c && c.name && String(c.name).trim()) {
+          colorMap.set(String(c.name).trim().toLowerCase(), {
+            name: String(c.name).trim(),
+            hex: c.hex || '#1e1e24',
+            image: c.image || images[0],
+          });
+        }
+      }
+    }
+
+    for (const v of cleanVariants) {
+      if (v.storage) storageSet.add(v.storage);
+      if (v.ram) ramSet.add(v.ram);
+      if (v.model) modelSet.add(v.model);
+      if (v.color) {
+        const key = v.color.toLowerCase();
+        if (!colorMap.has(key)) {
+          colorMap.set(key, {
+            name: v.color,
+            hex: v.colorHex || '#1e1e24',
+            image: v.image || images[0],
+          });
+        } else if (v.image) {
+          const existing = colorMap.get(key)!;
+          existing.image = v.image;
+        }
+      }
     }
 
     const newProduct: Product = {
       id: data.id || `prod-${Date.now()}`,
-      name: data.name,
-      brand: data.brand,
-      category: data.category || 'Flagship',
-      description: data.description || '',
-      price: Number(data.price),
-      oldPrice: Number(data.oldPrice || data.price),
-      discount: data.oldPrice > data.price ? Math.round(((data.oldPrice - data.price) / data.oldPrice) * 100) : (data.discount || 0),
-      images: Array.isArray(data.images) && data.images.length > 0 ? data.images : [
-        'https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=900&auto=format&fit=crop&q=80',
-      ],
-      colors: Array.isArray(data.colors) && data.colors.length > 0 ? data.colors : [
-        { name: 'Cosmic Titanium', hex: '#63666A' },
-      ],
-      storage: Array.isArray(data.storage) && data.storage.length > 0 ? data.storage : ['256GB', '512GB'],
-      ram: Array.isArray(data.ram) && data.ram.length > 0 ? data.ram : ['12GB'],
-      processor: data.processor || 'Next-Gen Flagship Octa-Core',
-      display: data.display || '6.7" Dynamic LTPO OLED 120Hz',
-      refreshRate: data.refreshRate || '120Hz ProMotion',
-      camera: data.camera || '50MP Triple Pro Camera Array',
-      battery: data.battery || '5,000 mAh All-Day Endurance',
-      charging: data.charging || '65W Fast Wired, 25W Wireless',
-      os: data.os || 'Android 16 / iOS 19',
-      weight: data.weight || '210g',
-      dimensions: data.dimensions || '162 x 75 x 8.2 mm',
-      stock: Number(data.stock ?? 25),
-      sku: data.sku || `SKU-${Date.now().toString().slice(-6)}`,
-      rating: Number(data.rating || 5.0),
-      reviews: Number(data.reviews || 0),
+      name: String(data.name).trim(),
+      brand: String(data.brand).trim(),
+      category: String(data.category).trim(),
+      description: data.description ? String(data.description).trim() : '',
+      price,
+      oldPrice,
+      discount,
+      images,
+      colors: Array.from(colorMap.values()),
+      storage: Array.from(storageSet),
+      ram: Array.from(ramSet),
+      models: modelSet.size > 0 ? Array.from(modelSet) : undefined,
+      variants: cleanVariants,
+      processor: data.processor ? String(data.processor).trim() : '',
+      display: data.display ? String(data.display).trim() : '',
+      refreshRate: data.refreshRate ? String(data.refreshRate).trim() : '',
+      camera: data.camera ? String(data.camera).trim() : '',
+      battery: data.battery ? String(data.battery).trim() : '',
+      charging: data.charging ? String(data.charging).trim() : '',
+      os: data.os ? String(data.os).trim() : '',
+      weight: data.weight ? String(data.weight).trim() : '',
+      dimensions: data.dimensions ? String(data.dimensions).trim() : '',
+      stock,
+      sku: data.sku && String(data.sku).trim() ? String(data.sku).trim() : `NOVA-${Date.now().toString().slice(-6)}`,
+      rating: data.rating !== undefined ? Number(data.rating) : 5.0,
+      reviews: data.reviews !== undefined ? Number(data.reviews) : 0,
       featured: Boolean(data.featured),
       bestSeller: Boolean(data.bestSeller),
-      newArrival: Boolean(data.newArrival !== undefined ? data.newArrival : true),
+      newArrival: Boolean(data.newArrival),
       deal: Boolean(data.deal),
     };
 
@@ -294,7 +492,96 @@ router.post('/products', requireAdmin, async (req: AuthRequest, res: Response) =
 
 router.put('/products/:id', requireAdmin, async (req: AuthRequest, res: Response) => {
   try {
-    const updated = await dbService.updateProduct(req.params.id, req.body);
+    const data = { ...req.body };
+    const existingProduct = await dbService.getProductById(req.params.id);
+    if (!existingProduct) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    if (data.variants !== undefined) {
+      const fallbackImg = (Array.isArray(data.images) && data.images[0]) || existingProduct.images?.[0];
+      const { variants: cleanVariants, error: variantError } = validateAndCleanVariants(
+        data.variants,
+        fallbackImg
+      );
+      if (variantError) {
+        return res.status(400).json({ error: variantError });
+      }
+      data.variants = cleanVariants;
+
+      if (cleanVariants.length > 0) {
+        const storageSet = new Set<string>(
+          Array.isArray(data.storage) ? data.storage.map((s: string) => String(s).trim()).filter(Boolean) : []
+        );
+        const ramSet = new Set<string>(
+          Array.isArray(data.ram) ? data.ram.map((s: string) => String(s).trim()).filter(Boolean) : []
+        );
+        const modelSet = new Set<string>(
+          Array.isArray(data.models) ? data.models.map((s: string) => String(s).trim()).filter(Boolean) : []
+        );
+        const colorMap = new Map<string, { name: string; hex: string; image?: string }>();
+
+        if (Array.isArray(data.colors)) {
+          for (const c of data.colors) {
+            if (c && c.name && String(c.name).trim()) {
+              colorMap.set(String(c.name).trim().toLowerCase(), {
+                name: String(c.name).trim(),
+                hex: c.hex || '#1e1e24',
+                image: c.image || fallbackImg,
+              });
+            }
+          }
+        }
+
+        for (const v of cleanVariants) {
+          if (v.storage) storageSet.add(v.storage);
+          if (v.ram) ramSet.add(v.ram);
+          if (v.model) modelSet.add(v.model);
+          if (v.color) {
+            const key = v.color.toLowerCase();
+            if (!colorMap.has(key)) {
+              colorMap.set(key, {
+                name: v.color,
+                hex: v.colorHex || '#1e1e24',
+                image: v.image || fallbackImg,
+              });
+            } else if (v.image) {
+              const existing = colorMap.get(key)!;
+              existing.image = v.image;
+            }
+          }
+        }
+
+        data.colors = Array.from(colorMap.values());
+        data.storage = Array.from(storageSet);
+        data.ram = Array.from(ramSet);
+        data.models = modelSet.size > 0 ? Array.from(modelSet) : [];
+      }
+    }
+
+    if (data.price !== undefined) {
+      const price = Number(data.price);
+      if (isNaN(price) || price <= 0) {
+        return res.status(400).json({ error: 'Narxni kiriting.' });
+      }
+      data.price = price;
+    }
+    if (data.stock !== undefined) {
+      const stock = Number(data.stock);
+      if (isNaN(stock) || stock < 0) {
+        return res.status(400).json({ error: 'Ombordagi sonini kiriting.' });
+      }
+      data.stock = stock;
+    }
+    if (data.oldPrice !== undefined) {
+      const oldPrice = Number(data.oldPrice);
+      const currentPrice = data.price ?? existingProduct.price ?? 0;
+      data.oldPrice = !isNaN(oldPrice) && oldPrice > currentPrice ? oldPrice : 0;
+      if (data.discount === undefined) {
+        data.discount = data.oldPrice > currentPrice ? Math.round(((data.oldPrice - currentPrice) / data.oldPrice) * 100) : 0;
+      }
+    }
+    const updated = await dbService.updateProduct(req.params.id, data);
     if (!updated) {
       return res.status(404).json({ error: 'Product not found' });
     }
@@ -374,6 +661,9 @@ router.get('/orders', optionalAuth, async (req: AuthRequest, res: Response) => {
       return res.json({ orders });
     }
     const userId = req.user?.id || (req.query.email as string);
+    if (!userId) {
+      return res.json({ orders: [] });
+    }
     const orders = await dbService.getOrders(userId);
     res.json({ orders });
   } catch (err: any) {
@@ -400,6 +690,20 @@ router.post('/orders', optionalAuth, async (req: AuthRequest, res: Response) => 
       return res.status(400).json({ error: 'Customer details and items are required' });
     }
 
+    const normalizedItems = (data.items as any[]).map(it => ({
+      productId: it.productId,
+      name: it.name || it.productName || '',
+      productName: it.productName || it.name || '',
+      brand: it.brand || '',
+      image: it.image || '',
+      color: it.color || '',
+      storage: it.storage || '',
+      ram: it.ram || '',
+      model: it.model || '',
+      price: Number(it.price || 0),
+      quantity: Number(it.quantity || 1),
+    }));
+
     const randomNum = Math.floor(10000 + Math.random() * 90000);
     const newOrder: Order = {
       id: `ord-${Date.now()}`,
@@ -408,7 +712,7 @@ router.post('/orders', optionalAuth, async (req: AuthRequest, res: Response) => 
       customer: data.customer,
       deliveryMethod: data.deliveryMethod || 'standard',
       paymentMethod: data.paymentMethod || 'card',
-      items: data.items,
+      items: normalizedItems,
       subtotal: Number(data.subtotal),
       discount: Number(data.discount || 0),
       deliveryFee: Number(data.deliveryFee || 0),

@@ -1,19 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
-import { Sparkles, ArrowRight, Smartphone } from 'lucide-react';
+import { Sparkles, ArrowRight } from 'lucide-react';
 import { Brand, Product } from '../types/index.ts';
 import { api } from '../services/api.ts';
 import { ProductCard } from '../components/common/ProductCard.tsx';
+import { useLanguage } from '../context/LanguageContext.tsx';
 
 interface BrandsPageProps {
   onNavigate: (path: string) => void;
 }
 
 export const BrandsPage: React.FC<BrandsPageProps> = ({ onNavigate }) => {
+  const { t } = useLanguage();
   const [brands, setBrands] = useState<Brand[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedBrand, setSelectedBrand] = useState<string>('Apple');
-  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function loadData() {
@@ -26,8 +26,6 @@ export const BrandsPage: React.FC<BrandsPageProps> = ({ onNavigate }) => {
         }
       } catch (e) {
         console.error('Failed to load brands:', e);
-      } finally {
-        setIsLoading(false);
       }
     }
     loadData();
@@ -45,13 +43,13 @@ export const BrandsPage: React.FC<BrandsPageProps> = ({ onNavigate }) => {
         <div className="mb-10 text-center max-w-2xl mx-auto">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950/40 border border-cyan-500/30 text-cyan-400 text-xs font-semibold mb-2">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>GLOBAL HARDWARE LEADERS</span>
+            <span>{t('home.brandsBadge')}</span>
           </div>
           <h1 className="text-3xl sm:text-5xl font-extrabold text-white font-['Space_Grotesk']">
-            Flagship Brand Hub
+            {t('brands.title')}
           </h1>
           <p className="text-sm text-slate-400 mt-2">
-            Explore authentic flagship smartphones categorized by their visionary creators.
+            {t('brands.subtitle')}
           </p>
         </div>
 
@@ -95,10 +93,10 @@ export const BrandsPage: React.FC<BrandsPageProps> = ({ onNavigate }) => {
               </div>
               <div>
                 <span className="text-xs uppercase tracking-widest font-bold text-cyan-400">
-                  Featured Ecosystem
+                  {t('home.brandsBadge')}
                 </span>
                 <h2 className="text-2xl sm:text-3xl font-extrabold text-white mt-1">
-                  {activeBrandData.name} Smartphones
+                  {activeBrandData.name}
                 </h2>
                 <p className="text-sm text-slate-300 max-w-xl mt-1 leading-relaxed">
                   {activeBrandData.description}
@@ -107,10 +105,10 @@ export const BrandsPage: React.FC<BrandsPageProps> = ({ onNavigate }) => {
             </div>
 
             <button
-              onClick={() => onNavigate(`/phones?brand=${activeBrandData.name}`)}
+              onClick={() => onNavigate(`/phones?brand=${encodeURIComponent(activeBrandData.name)}`)}
               className="px-6 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/20 text-white font-bold text-xs uppercase tracking-wider shrink-0 transition-all flex items-center gap-2"
             >
-              <span>View In Catalog</span>
+              <span>{t('brands.exploreModels')}</span>
               <ArrowRight className="w-4 h-4 text-cyan-400" />
             </button>
           </div>
@@ -119,14 +117,14 @@ export const BrandsPage: React.FC<BrandsPageProps> = ({ onNavigate }) => {
         {/* Brand Devices Grid */}
         <div className="mb-6 flex items-center justify-between">
           <h3 className="text-xl font-bold text-white font-['Space_Grotesk']">
-            Available {selectedBrand} Models ({brandProducts.length})
+            {selectedBrand} ({brandProducts.length})
           </h3>
-          <span className="text-xs text-slate-400">100% Guaranteed Authentic</span>
+          <span className="text-xs text-slate-400">{t('trust.originalTitle')}</span>
         </div>
 
         {brandProducts.length === 0 ? (
           <div className="py-20 text-center text-slate-400">
-            No devices currently in stock for {selectedBrand}. Check back shortly!
+            {t('catalog.noResults')}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">

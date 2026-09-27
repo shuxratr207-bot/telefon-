@@ -1,293 +1,324 @@
 import React, { useState, useEffect } from 'react';
-import { Image as ImageIcon, Plus, Edit, Trash2, X, Save } from 'lucide-react';
+import { Plus, Trash2, Edit, X } from 'lucide-react';
 import { Banner } from '../../types/index.ts';
 import { api } from '../../services/api.ts';
 import { useToast } from '../../context/ToastContext.tsx';
+import { useLanguage } from '../../context/LanguageContext.tsx';
 
 interface AdminBannersPageProps {
   onNavigate: (route: string) => void;
 }
 
-export const AdminBannersPage: React.FC<AdminBannersPageProps> = ({ onNavigate }) => {
+export const AdminBannersPage: React.FC<AdminBannersPageProps> = () => {
+  const { showToast } = useToast();
+  const { t } = useLanguage();
   const [banners, setBanners] = useState<Banner[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBanner, setEditingBanner] = useState<Banner | null>(null);
+  const [formData, setFormData] = useState({
+    title: '',
+    subtitle: '',
+    image: '',
+    buttonText: '',
+    buttonLink: '/phones',
+    startDate: '',
+    endDate: '',
+    status: 'active' as 'active' | 'inactive',
+  });
 
-  const [title, setTitle] = useState('');
-  const [subtitle, setSubtitle] = useState('');
-  const [image, setImage] = useState('');
-  const [buttonText, setButtonText] = useState('EXPLORE NOW');
-  const [buttonLink, setButtonLink] = useState('/phones');
-  const [badge, setBadge] = useState('NEW GENERATION 2026');
-  const [status, setStatus] = useState<'active' | 'inactive'>('active');
-
-  const { showToast } = useToast();
-
-  const loadBanners = async () => {
-    setIsLoading(true);
+  const loadData = async () => {
+    setLoading(true);
+    setError(null);
     try {
       const res = await api.getBanners();
       setBanners(res.banners);
-    } catch (e) {
-      console.error('Failed to load banners:', e);
+    } catch {
+      setError(t('admin.state.loadFailed'));
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadBanners();
+    loadData();
   }, []);
 
-  const openAddModal = () => {
-    setEditingBanner(null);
-    setTitle('');
-    setSubtitle('');
-    setImage('https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?w=1600&auto=format&fit=crop&q=80');
-    setButtonText('EXPLORE NOW');
-    setButtonLink('/phones');
-    setBadge('2026 FLAGSHIP');
-    setStatus('active');
+  const openModal = (banner?: Banner) => {
+    if (banner) {
+      setEditingBanner(banner);
+      setFormData({
+        title: banner.title,
+        subtitle: banner.subtitle,
+        image: banner.image,
+        buttonText: banner.buttonText,
+        buttonLink: banner.buttonLink,
+        startDate: banner.startDate?.slice(0, 10) || '',
+        endDate: banner.endDate?.slice(0, 10) || '',
+        status: banner.status,
+      });
+    } else {
+      setEditingBanner(null);
+      setFormData({
+        title: '',
+        subtitle: '',
+        image: '',
+        buttonText: '',
+        buttonLink: '/phones',
+        startDate: new Date().toISOString().slice(0, 10),
+        endDate: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
+        status: 'active',
+      });
+    }
     setIsModalOpen(true);
   };
 
-  const openEditModal = (b: Banner) => {
-    setEditingBanner(b);
-    setTitle(b.title);
-    setSubtitle(b.subtitle);
-    setImage(b.image);
-    setButtonText(b.buttonText);
-    setButtonLink(b.buttonLink);
-    setBadge(b.badge || '');
-    setStatus(b.status);
-    setIsModalOpen(true);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.title.trim() || !formData.image.trim()) {
+      showToast(t('admin.banners.headline'), 'error');
+      return;
+    }
     try {
       if (editingBanner) {
-        await api.updateBanner(editingBanner.id, {
-          title,
-          subtitle,
-          image,
-          buttonText,
-          buttonLink,
-          badge,
-          status,
-        });
-        showToast('Banner updated successfully!', 'success');
+        await api.updateBanner(editingBanner.id, formData);
+        showToast(t('admin.btn.update'), 'success');
       } else {
-        await api.createBanner({
-          title,
-          subtitle,
-          image,
-          buttonText,
-          buttonLink,
-          badge,
-          status,
-        });
-        showToast('New homepage banner published!', 'success');
+        await api.createBanner(formData);
+        showToast(t('admin.btn.save'), 'success');
       }
       setIsModalOpen(false);
-      loadBanners();
-    } catch (err: any) {
-      showToast(err.message || 'Operation failed', 'error');
+      loadData();
+    } catch {
+      showToast(t('admin.state.error'), 'error');
     }
   };
 
   const handleDelete = async (id: string) => {
     try {
       await api.deleteBanner(id);
-      showToast('Banner deleted', 'info');
-      loadBanners();
-    } catch (err: any) {
-      showToast(err.message || 'Delete failed', 'error');
+      showToast(t('admin.btn.delete'), 'info');
+      loadData();
+    } catch {
+      showToast(t('admin.state.error'), 'error');
     }
   };
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-white/10 gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
         <div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-white font-['Space_Grotesk']">
-            Homepage Hero Banners
+            {t('admin.banners.title')}
           </h1>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Configure marquee promotional hero headers and seasonal campaign slides.
-          </p>
+          <p className="text-xs text-slate-400 mt-0.5">{t('admin.banners.subtitle')}</p>
         </div>
-
         <button
-          onClick={openAddModal}
+          onClick={() => openModal()}
           className="px-5 py-2.5 rounded-2xl bg-cyan-500 hover:bg-cyan-400 text-black font-extrabold text-xs uppercase tracking-wider transition-all flex items-center gap-2 shadow-lg shadow-cyan-500/25"
         >
-          <Plus className="w-4 h-4 stroke-[3]" />
-          <span>Add Banner</span>
+          <Plus className="w-4 h-4 stroke-[3]" /> {t('admin.banners.add')}
         </button>
       </div>
 
-      {/* Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {banners.map(banner => (
-          <div
-            key={banner.id}
-            className="rounded-3xl bg-[#0d0f17] border border-white/10 overflow-hidden shadow-2xl flex flex-col justify-between"
+      {error && (
+        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-between text-rose-400 text-sm">
+          <span>{error}</span>
+          <button
+            onClick={loadData}
+            className="px-3 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 font-bold text-xs"
           >
-            <div className="relative h-48 bg-slate-900 overflow-hidden">
-              <img src={banner.image} alt={banner.title} className="w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#0d0f17] via-black/40 to-transparent" />
-              <div className="absolute top-4 left-4 flex gap-2">
-                {banner.badge && (
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-                    {banner.badge}
-                  </span>
-                )}
-                <span
-                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                    banner.status === 'active' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'
-                  }`}
-                >
-                  {banner.status}
-                </span>
+            {t('admin.state.tryAgain')}
+          </button>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="p-12 text-center text-slate-400 text-sm bg-[#0d0f17] rounded-2xl border border-white/10">
+          {t('admin.state.loading')}
+        </div>
+      ) : banners.length === 0 ? (
+        <div className="p-12 text-center text-slate-400 text-sm bg-[#0d0f17] rounded-2xl border border-white/10">
+          {t('admin.state.noData')}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {banners.map((banner) => (
+            <div
+              key={banner.id}
+              className="rounded-3xl bg-[#0d0f17] border border-white/10 overflow-hidden flex flex-col justify-between group shadow-xl"
+            >
+              <div className="relative h-48 overflow-hidden bg-slate-900">
+                <img
+                  src={banner.image}
+                  alt={banner.title}
+                  className="w-full h-full object-cover opacity-65 group-hover:scale-105 transition-transform duration-500"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#0d0f17] via-[#0d0f17]/40 to-transparent p-6 flex flex-col justify-end">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span
+                      className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                        banner.status === 'active'
+                          ? 'bg-emerald-500/20 text-emerald-300'
+                          : 'bg-slate-500/20 text-slate-300'
+                      }`}
+                    >
+                      {banner.status === 'active' ? t('admin.status.active') : t('admin.status.inactive')}
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-extrabold text-white">{banner.title}</h3>
+                  <p className="text-xs text-slate-300 line-clamp-1">{banner.subtitle}</p>
+                </div>
+              </div>
+              <div className="p-4 flex items-center justify-between border-t border-white/5">
+                <div className="text-xs text-slate-400">
+                  {t('admin.banners.buttonText')}: <span className="text-white font-bold">{banner.buttonText}</span> →{' '}
+                  <span className="text-cyan-400">{banner.buttonLink}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => openModal(banner)}
+                    title={t('admin.btn.edit')}
+                    className="p-2 rounded-lg bg-white/5 hover:bg-cyan-500/20 text-slate-400 hover:text-cyan-400"
+                  >
+                    <Edit className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(banner.id)}
+                    title={t('admin.btn.delete')}
+                    className="p-2 rounded-lg bg-white/5 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             </div>
+          ))}
+        </div>
+      )}
 
-            <div className="p-6 space-y-3">
-              <h3 className="text-lg font-bold text-white font-['Space_Grotesk']">{banner.title}</h3>
-              <p className="text-xs text-slate-400 leading-relaxed">{banner.subtitle}</p>
-              <div className="pt-2 flex items-center justify-between text-xs text-slate-500">
-                <span>Action: <strong className="text-cyan-400">{banner.buttonText}</strong></span>
-                <span className="font-mono">Route: {banner.buttonLink}</span>
-              </div>
-            </div>
-
-            <div className="p-4 border-t border-white/5 bg-black/30 flex items-center justify-end gap-2">
-              <button
-                onClick={() => openEditModal(banner)}
-                className="p-2 text-slate-400 hover:text-cyan-400 rounded-lg hover:bg-white/5"
-                title="Edit banner"
-              >
-                <Edit className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={() => handleDelete(banner.id)}
-                className="p-2 text-slate-400 hover:text-rose-400 rounded-lg hover:bg-white/5"
-                title="Delete banner"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div onClick={() => setIsModalOpen(false)} className="fixed inset-0 bg-black/80 backdrop-blur-sm" />
-          <div className="relative w-full max-w-md bg-[#0d0f17] border border-cyan-500/30 rounded-3xl p-6 shadow-2xl z-10 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-white/10">
-              <h3 className="text-base font-bold text-white">
-                {editingBanner ? 'Edit Banner' : 'Create Banner'}
-              </h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-white">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl bg-[#0d0f17] border border-white/10 overflow-hidden shadow-2xl">
+            <div className="p-6 border-b border-white/10 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-white">
+                {editingBanner ? t('admin.btn.edit') : t('admin.banners.add')}
+              </h2>
+              <button onClick={() => setIsModalOpen(false)} className="p-2 rounded-lg bg-white/5 text-slate-400">
                 <X className="w-4 h-4" />
               </button>
             </div>
-
-            <form onSubmit={handleSubmit} className="space-y-3 text-xs">
+            <form onSubmit={handleSave} className="p-6 space-y-4">
               <div>
-                <label className="block font-semibold text-slate-300 mb-1">Title Headline *</label>
+                <label className="block text-xs font-semibold text-slate-400 mb-1.5">
+                  {t('admin.banners.headline')} *
+                </label>
                 <input
                   type="text"
                   required
-                  value={title}
-                  onChange={e => setTitle(e.target.value)}
-                  className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-cyan-400"
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-white text-sm"
                 />
               </div>
-
               <div>
-                <label className="block font-semibold text-slate-300 mb-1">Subtitle Description</label>
-                <textarea
-                  rows={2}
-                  value={subtitle}
-                  onChange={e => setSubtitle(e.target.value)}
-                  className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-cyan-400"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-300 mb-1">Image URL *</label>
+                <label className="block text-xs font-semibold text-slate-400 mb-1.5">
+                  {t('admin.banners.subtext')}
+                </label>
                 <input
-                  type="url"
-                  required
-                  value={image}
-                  onChange={e => setImage(e.target.value)}
-                  className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-cyan-400"
+                  type="text"
+                  value={formData.subtitle}
+                  onChange={(e) => setFormData({ ...formData, subtitle: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-white text-sm"
                 />
               </div>
-
-              <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-1.5">
+                  {t('admin.banners.image')} (URL) *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formData.image}
+                  onChange={(e) => setFormData({ ...formData, image: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-white text-sm"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-300 mb-1">Button Text</label>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1.5">
+                    {t('admin.banners.buttonText')}
+                  </label>
                   <input
                     type="text"
-                    value={buttonText}
-                    onChange={e => setButtonText(e.target.value)}
-                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white"
+                    value={formData.buttonText}
+                    onChange={(e) => setFormData({ ...formData, buttonText: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-white text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-slate-300 mb-1">Button Link</label>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1.5">
+                    {t('admin.banners.buttonLink')}
+                  </label>
                   <input
                     type="text"
-                    value={buttonLink}
-                    onChange={e => setButtonLink(e.target.value)}
-                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white font-mono"
+                    value={formData.buttonLink}
+                    onChange={(e) => setFormData({ ...formData, buttonLink: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-white text-sm"
                   />
                 </div>
               </div>
-
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-300 mb-1">Badge Tag</label>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1.5">
+                    {t('admin.banners.startDate')}
+                  </label>
                   <input
-                    type="text"
-                    value={badge}
-                    onChange={e => setBadge(e.target.value)}
-                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white"
+                    type="date"
+                    value={formData.startDate}
+                    onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-white text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-slate-300 mb-1">Status</label>
-                  <select
-                    value={status}
-                    onChange={e => setStatus(e.target.value as any)}
-                    className="w-full px-3 py-2 bg-[#0d0f17] border border-white/10 rounded-xl text-white"
-                  >
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                  </select>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1.5">
+                    {t('admin.banners.endDate')}
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.endDate}
+                    onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-white text-sm"
+                  />
                 </div>
               </div>
-
-              <div className="pt-3 border-t border-white/10 flex justify-end gap-2">
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-1.5">
+                  {t('admin.banners.status')}
+                </label>
+                <select
+                  value={formData.status}
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#0D1322] border border-white/10 text-white text-sm"
+                >
+                  <option value="active">{t('admin.status.active')}</option>
+                  <option value="inactive">{t('admin.status.inactive')}</option>
+                </select>
+              </div>
+              <div className="pt-3 flex justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-white/10 text-slate-300"
+                  className="px-4 py-2 rounded-xl bg-white/5 text-slate-300 text-xs font-bold"
                 >
-                  Cancel
+                  {t('admin.btn.cancel')}
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-cyan-500 text-black font-bold uppercase"
+                  className="px-5 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black text-xs font-extrabold"
                 >
-                  Save Banner
+                  {editingBanner ? t('admin.btn.update') : t('admin.btn.save')}
                 </button>
               </div>
             </form>

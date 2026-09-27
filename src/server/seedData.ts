@@ -1,11 +1,11 @@
-import { Product, User, Brand, Category, Deal, Banner, NotificationItem, StoreSettings, Order, Review } from '../types/index.ts';
+import { Product, ProductVariant, User, Brand, Category, Deal, Banner, NotificationItem, StoreSettings, Order, Review } from '../types/index.ts';
 
 export const initialBrands: Brand[] = [
   {
     id: 'apple',
     name: 'Apple',
     logo: 'https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?w=300&auto=format&fit=crop&q=80',
-    description: 'Pioneering titanium craftsmanship, Super Retina XDR displays, and industry-leading Apple Silicon.',
+    description: 'Mukammal titan korpus, Super Retina XDR displey va sanoatda yetakchi Apple Silicon protsessorlari.',
     status: 'active',
     productCount: 4,
   },
@@ -13,7 +13,7 @@ export const initialBrands: Brand[] = [
     id: 'samsung',
     name: 'Samsung',
     logo: 'https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?w=300&auto=format&fit=crop&q=80',
-    description: 'Next-generation Galaxy AI, Dynamic AMOLED 2X, and built-in S-Pen productivity powerhouses.',
+    description: 'Yangi avlod Galaxy AI, Dynamic AMOLED 2X displey va S-Pen imkoniyatlariga ega flagmanlar.',
     status: 'active',
     productCount: 4,
   },
@@ -21,7 +21,7 @@ export const initialBrands: Brand[] = [
     id: 'google',
     name: 'Google',
     logo: 'https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=300&auto=format&fit=crop&q=80',
-    description: 'Pure Android experience propelled by Google Tensor AI computational photography and Gemini Pro.',
+    description: 'Google Tensor AI protsessori, professional hisoblash fotografiyasi va toza Android tajribasi.',
     status: 'active',
     productCount: 3,
   },
@@ -29,7 +29,7 @@ export const initialBrands: Brand[] = [
     id: 'xiaomi',
     name: 'Xiaomi',
     logo: 'https://images.unsplash.com/photo-1511707171634-5f897ff02560?w=300&auto=format&fit=crop&q=80',
-    description: 'Leica co-engineered optical supremacy, ultra-fast HyperCharge, and HyperOS fluid design.',
+    description: 'Leica bilan hamkorlikda yaratilgan optika, o‘ta tezkor HyperCharge quvvatlash va HyperOS tizimi.',
     status: 'active',
     productCount: 3,
   },
@@ -37,7 +37,7 @@ export const initialBrands: Brand[] = [
     id: 'oneplus',
     name: 'OnePlus',
     logo: 'https://images.unsplash.com/photo-1580910051074-3eb694886505?w=300&auto=format&fit=crop&q=80',
-    description: 'Hasselblad camera calibration, hyper-smooth OxygenOS, and flagship speed without compromise.',
+    description: 'Hasselblad kamera kalibratsiyasi, ravon OxygenOS va murosasiz flagman tezligi.',
     status: 'active',
     productCount: 2,
   },
@@ -45,7 +45,7 @@ export const initialBrands: Brand[] = [
     id: 'nothing',
     name: 'Nothing',
     logo: 'https://images.unsplash.com/photo-1592899677977-9c10ca588bbd?w=300&auto=format&fit=crop&q=80',
-    description: 'Iconic transparent Glyph matrix aesthetics with pure, bloat-free Nothing OS software minimalism.',
+    description: 'Noyob shaffof Glyph matritsali dizayn va ortiqcha ilovalarsiz minimalist Nothing OS.',
     status: 'active',
     productCount: 2,
   },
@@ -53,7 +53,7 @@ export const initialBrands: Brand[] = [
     id: 'honor',
     name: 'Honor',
     logo: 'https://images.unsplash.com/photo-1565849904461-04a58ad377e0?w=300&auto=format&fit=crop&q=80',
-    description: 'Silicon-carbon battery breakthroughs and ultra-slim aerospace-grade foldable engineering.',
+    description: 'Kremniy-uglerod batareya texnologiyasi va o‘ta yupqa bukiluvchan flagman muhandisligi.',
     status: 'active',
     productCount: 2,
   },
@@ -61,32 +61,32 @@ export const initialBrands: Brand[] = [
     id: 'huawei',
     name: 'Huawei',
     logo: 'https://images.unsplash.com/photo-1546868871-7041f2a55e12?w=300&auto=format&fit=crop&q=80',
-    description: 'Ultra-durable Kunlun glass, satellite networking innovation, and revolutionary XMAGE optics.',
+    description: 'Mustahkam Kunlun oynasi, sun’iy yo‘ldosh aloqasi va inqilobiy XMAGE kamera optikasi.',
     status: 'active',
     productCount: 2,
   },
 ];
 
 export const initialCategories: Category[] = [
-  { id: 'flagship', name: 'Flagship', slug: 'flagship', description: 'Ultimate performance, premium build & pro cameras' },
-  { id: 'foldable', name: 'Foldable', slug: 'foldable', description: 'Next-gen dual screen & compact flip smartphones' },
-  { id: 'gaming', name: 'Gaming', slug: 'gaming', description: 'High refresh rate, dedicated cooling & shoulder triggers' },
-  { id: 'mid-range', name: 'Mid Range', slug: 'mid-range', description: 'Exceptional balance of flagship features at value prices' },
-  { id: 'budget', name: 'Budget', slug: 'budget', description: 'Reliable all-day daily drivers with modern essentials' },
-  { id: 'accessories', name: 'Accessories', slug: 'accessories', description: 'Official fast chargers, cases, and audio accessories' },
+  { id: 'flagship', name: 'Flagship', slug: 'flagship', description: 'Maksimal unumdorlik, premium korpus va professional kameralar' },
+  { id: 'foldable', name: 'Foldable', slug: 'foldable', description: 'Yangi avlod qo‘sh ekranli va ixcham bukiluvchan smartfonlar' },
+  { id: 'gaming', name: 'Gaming', slug: 'gaming', description: 'Yuqori yangilanish tezligi, maxsus sovitish tizimi va o‘yin tugmalari' },
+  { id: 'mid-range', name: 'Mid Range', slug: 'mid-range', description: 'Flagman imkoniyatlari va hamyonbop narxning mukammal uyg‘unligi' },
+  { id: 'budget', name: 'Budget', slug: 'budget', description: 'Kun davomida ishonchli ishlovchi zamonaviy va qulay smartfonlar' },
+  { id: 'accessories', name: 'Accessories', slug: 'accessories', description: 'Rasmiy tezkor quvvatlagichlar, g‘iloflar va audio aksessuarlar' },
 ];
 
-export const initialProducts: Product[] = [
+const rawInitialProducts: Product[] = [
   {
     id: 'prod-iphone-17-promax',
     name: 'iPhone 17 Pro Max',
     brand: 'Apple',
     category: 'Flagship',
-    description: 'The pinnacle of smartphone innovation. Sculpted in Grade 5 aerospace titanium with an ultra-thin border 6.9-inch Super Retina XDR OLED display, Apple A19 Pro 2nm architecture, and a revolutionary tetraprism telephoto array.',
-    price: 1399,
-    oldPrice: 1499,
-    discount: 7,
-    sku: 'APL-17PM-512',
+    description: 'Smartfon innovatsiyasining cho‘qqisi. 5-darajali aerokosmik titan korpus, o‘ta yupqa ramkali 6.9 dyuymli Super Retina XDR OLED displey, Apple A19 Pro 2nm arxitekturasi va inqilobiy tetraprizma telefoto kamera tizimi.',
+    price: 999,
+    oldPrice: 1149,
+    discount: 13,
+    sku: 'APL-17PM-256',
     stock: 28,
     rating: 4.95,
     reviews: 142,
@@ -95,19 +95,20 @@ export const initialProducts: Product[] = [
     newArrival: true,
     deal: true,
     colors: [
-      { name: 'Cosmic Titanium', hex: '#63666A', image: 'https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=900&auto=format&fit=crop&q=80' },
-      { name: 'Deep Indigo', hex: '#2C3E50', image: 'https://images.unsplash.com/photo-1695048132796-0185e927c92b?w=900&auto=format&fit=crop&q=80' },
-      { name: 'Desert Gold', hex: '#D4AF37', image: 'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=900&auto=format&fit=crop&q=80' },
-      { name: 'Pure White Titanium', hex: '#E5E7EB', image: 'https://images.unsplash.com/photo-1510557880182-3d4d3cba35a5?w=900&auto=format&fit=crop&q=80' },
+      { name: 'Qora', hex: '#18181B', image: 'https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=900&auto=format&fit=crop&q=80' },
+      { name: 'Oq', hex: '#F8FAFC', image: 'https://images.unsplash.com/photo-1510557880182-3d4d3cba35a5?w=900&auto=format&fit=crop&q=80' },
+      { name: 'Ko‘k', hex: '#1E3A8A', image: 'https://images.unsplash.com/photo-1695048132796-0185e927c92b?w=900&auto=format&fit=crop&q=80' },
+      { name: 'Tabiiy titan', hex: '#8E8D8A', image: 'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=900&auto=format&fit=crop&q=80' },
     ],
     images: [
       'https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=900&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1510557880182-3d4d3cba35a5?w=900&auto=format&fit=crop&q=80',
       'https://images.unsplash.com/photo-1695048132796-0185e927c92b?w=900&auto=format&fit=crop&q=80',
       'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=900&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1510557880182-3d4d3cba35a5?w=900&auto=format&fit=crop&q=80',
     ],
-    storage: ['256GB', '512GB', '1TB', '2TB'],
-    ram: ['12GB Unified'],
+    storage: ['128 GB', '256 GB', '512 GB', '1 TB'],
+    ram: ['8 GB', '12 GB'],
+    models: ['Oddiy versiya', 'Pro', 'Pro Max'],
     processor: 'Apple A19 Pro (2nm) Neural Engine',
     display: '6.9" Super Retina XDR OLED (3000 nits peak)',
     refreshRate: '120Hz ProMotion',
@@ -123,11 +124,11 @@ export const initialProducts: Product[] = [
     name: 'Samsung Galaxy S26 Ultra',
     brand: 'Samsung',
     category: 'Flagship',
-    description: 'Galaxy AI unleashed. Titanium reinforced frame with embedded Bluetooth S-Pen stylus, groundbreaking 200MP quad-sensor zoom matrix, and Snapdragon 8 Gen 5 for Galaxy delivering unrivaled ray tracing and productivity.',
-    price: 1349,
-    oldPrice: 1449,
-    discount: 7,
-    sku: 'SAM-S26U-512',
+    description: 'Galaxy AI yangi bosqichda. O‘rnatilgan S-Pen stilusiga ega mustahkamlangan titan korpus, 200MP to‘rt sensorli zum matritsasi va mislsiz unumdorlik beruvchi Snapdragon 8 Gen 5 for Galaxy protsessori.',
+    price: 1199,
+    oldPrice: 1349,
+    discount: 11,
+    sku: 'SAM-S26U-256',
     stock: 22,
     rating: 4.92,
     reviews: 128,
@@ -136,17 +137,19 @@ export const initialProducts: Product[] = [
     newArrival: true,
     deal: true,
     colors: [
-      { name: 'Titanium Cobalt Blue', hex: '#1E3A8A', image: 'https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?w=900&auto=format&fit=crop&q=80' },
-      { name: 'Titanium Black', hex: '#18181B', image: 'https://images.unsplash.com/photo-1580910051074-3eb694886505?w=900&auto=format&fit=crop&q=80' },
-      { name: 'Titanium Violet', hex: '#6D28D9', image: 'https://images.unsplash.com/photo-1565849904461-04a58ad377e0?w=900&auto=format&fit=crop&q=80' },
+      { name: 'Ko‘k', hex: '#1E3A8A', image: 'https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?w=900&auto=format&fit=crop&q=80' },
+      { name: 'Qora', hex: '#18181B', image: 'https://images.unsplash.com/photo-1580910051074-3eb694886505?w=900&auto=format&fit=crop&q=80' },
+      { name: 'Binafsha', hex: '#6D28D9', image: 'https://images.unsplash.com/photo-1565849904461-04a58ad377e0?w=900&auto=format&fit=crop&q=80' },
+      { name: 'Tabiiy titan', hex: '#8E8D8A', image: 'https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=900&auto=format&fit=crop&q=80' },
     ],
     images: [
       'https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?w=900&auto=format&fit=crop&q=80',
       'https://images.unsplash.com/photo-1580910051074-3eb694886505?w=900&auto=format&fit=crop&q=80',
       'https://images.unsplash.com/photo-1565849904461-04a58ad377e0?w=900&auto=format&fit=crop&q=80',
     ],
-    storage: ['256GB', '512GB', '1TB'],
-    ram: ['16GB LPDDR5X'],
+    storage: ['256 GB', '512 GB', '1 TB'],
+    ram: ['12 GB', '16 GB'],
+    models: ['Oddiy versiya', 'Pro', 'Ultra'],
     processor: 'Snapdragon 8 Gen 5 For Galaxy (3nm)',
     display: '6.8" Dynamic AMOLED 2X QHD+ Anti-Reflective (3200 nits)',
     refreshRate: '1-120Hz Adaptive LTPO',
@@ -162,11 +165,11 @@ export const initialProducts: Product[] = [
     name: 'Google Pixel 11 Pro',
     brand: 'Google',
     category: 'Flagship',
-    description: 'The master of computational photography powered by Google Tensor G5. Featuring native Gemini Nano on-device AI intelligence, Magic Eraser Pro, 8K Video Boost, and a polished satin matte glass back with polished aerospace metal camera visor.',
-    price: 1099,
-    oldPrice: 1199,
-    discount: 8,
-    sku: 'GGL-P11P-256',
+    description: 'Google Tensor G5 quvvatiga ega hisoblash fotografiyasi ustasi. Magic Eraser Pro, 8K Video Boost va jilolangan metall kamera blokiga ega premium mat oyna korpus.',
+    price: 999,
+    oldPrice: 1099,
+    discount: 9,
+    sku: 'GGL-P11P-128',
     stock: 19,
     rating: 4.88,
     reviews: 95,
@@ -175,17 +178,18 @@ export const initialProducts: Product[] = [
     newArrival: true,
     deal: false,
     colors: [
-      { name: 'Obsidian Black', hex: '#111827', image: 'https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=900&auto=format&fit=crop&q=80' },
-      { name: 'Bay Blue', hex: '#38BDF8', image: 'https://images.unsplash.com/photo-1511707171634-5f897ff02560?w=900&auto=format&fit=crop&q=80' },
-      { name: 'Porcelain White', hex: '#F3F4F6', image: 'https://images.unsplash.com/photo-1592899677977-9c10ca588bbd?w=900&auto=format&fit=crop&q=80' },
+      { name: 'Qora', hex: '#111827', image: 'https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=900&auto=format&fit=crop&q=80' },
+      { name: 'Ko‘k', hex: '#38BDF8', image: 'https://images.unsplash.com/photo-1511707171634-5f897ff02560?w=900&auto=format&fit=crop&q=80' },
+      { name: 'Oq', hex: '#F3F4F6', image: 'https://images.unsplash.com/photo-1592899677977-9c10ca588bbd?w=900&auto=format&fit=crop&q=80' },
     ],
     images: [
       'https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=900&auto=format&fit=crop&q=80',
       'https://images.unsplash.com/photo-1511707171634-5f897ff02560?w=900&auto=format&fit=crop&q=80',
       'https://images.unsplash.com/photo-1592899677977-9c10ca588bbd?w=900&auto=format&fit=crop&q=80',
     ],
-    storage: ['128GB', '256GB', '512GB', '1TB'],
-    ram: ['16GB LPDDR5X'],
+    storage: ['128 GB', '256 GB', '512 GB', '1 TB'],
+    ram: ['12 GB', '16 GB'],
+    models: ['Pro', 'Pro XL'],
     processor: 'Google Tensor G5 AI Core',
     display: '6.7" Super Actua LTPO OLED (3000 nits)',
     refreshRate: '1-120Hz Smooth Display',
@@ -827,6 +831,177 @@ export const initialProducts: Product[] = [
   },
 ];
 
+function formatStorageLabel(s: string): string {
+  return s.replace(/(\d+)\s*(GB|TB)/i, '$1 $2').toUpperCase().trim();
+}
+
+function formatRamLabel(r: string): string {
+  const match = r.match(/(\d+)\s*GB/i);
+  if (match) return `${match[1]} GB`;
+  return r.trim();
+}
+
+const uzColorNameMap: Record<string, string> = {
+  'Emerald Forest': 'Zumrad yashil',
+  'Silky Black': 'Qora',
+  'Ceramic White': 'Oq',
+  'Midnight Titan': 'Tabiiy titan',
+  'Transparent Dark': 'Qora',
+  'Transparent White': 'Oq',
+  'Ink Rock Black': 'Qora',
+  'Sky Cyan': 'Ko‘k',
+  'Ink Cloud Gold': 'Oltin',
+  'Xuan Black': 'Qora',
+  'Phantom Silver': 'Kumush',
+  'Navy Blue': 'Ko‘k',
+  'Phantom Black Matrix': 'Qora',
+  'Ultramarine Blue': 'Ko‘k',
+  'Teal Green': 'Zumrad yashil',
+  'Pink Frost': 'Pushti',
+  'Onyx Black': 'Qora',
+  'Marble Gray': 'Tabiiy titan',
+  'Peony Rose': 'Pushti',
+  'Wintergreen': 'Yashil',
+  'Milk White': 'Oq',
+  'Dark Grey': 'Qora',
+  'Mirror Porcelain': 'Oq',
+  'Midnight Violet': 'Binafsha',
+  'Reddish Brown Velvet': 'Jigarrang',
+  'Silk Black': 'Qora',
+  'Mercurial Silver': 'Kumush',
+  'Obsidian Midnight': 'Qora',
+  'Mint Green': 'Yashil',
+  'Silver Shadow': 'Kumush',
+  'Peach Glow': 'Pushti',
+  'Chanson Green Leather': 'Zumrad yashil',
+  'Mocha Gold': 'Oltin',
+  'Midnight': 'Qora',
+  'Starlight': 'Oq',
+};
+
+export function generateProductVariants(product: Product): Product {
+  const normalizedColors = (product.colors || []).map((c, idx) => ({
+    ...c,
+    name: uzColorNameMap[c.name] || c.name,
+    image: c.image || product.images?.[idx] || product.images?.[0] || '',
+  }));
+
+  const normalizedStorages = (product.storage || []).map(formatStorageLabel);
+  const normalizedRams = (product.ram || []).map(formatRamLabel);
+  const models = product.models && product.models.length > 0 ? product.models : [];
+
+  if (product.variants && product.variants.length > 0) {
+    return {
+      ...product,
+      colors: normalizedColors,
+      storage: normalizedStorages,
+      ram: normalizedRams,
+      models,
+    };
+  }
+
+  const variants: ProductVariant[] = [];
+
+  if (product.id === 'prod-iphone-17-promax') {
+    const storagePriceMap: Record<string, number> = {
+      '128 GB': 899,
+      '256 GB': 999,
+      '512 GB': 1099,
+      '1 TB': 1299,
+    };
+    const ramDelta: Record<string, number> = {
+      '8 GB': 0,
+      '12 GB': 50,
+    };
+    const modelDelta: Record<string, number> = {
+      'Oddiy versiya': -100,
+      'Pro': 0,
+      'Pro Max': 100,
+    };
+
+    for (const color of normalizedColors) {
+      for (const storage of normalizedStorages) {
+        for (const ram of normalizedRams) {
+          for (const model of models) {
+            const baseStoragePrice = storagePriceMap[storage] || 999;
+            const vPrice = Math.max(
+              799,
+              baseStoragePrice + (ramDelta[ram] || 0) + (modelDelta[model] || 0)
+            );
+            let vStock = 6;
+            if (color.name === 'Qora' && storage === '256 GB') vStock = 8;
+            else if (color.name === 'Qora' && storage === '512 GB') vStock = 3;
+            else if (color.name === 'Ko‘k' && storage === '256 GB') vStock = 0;
+            else if (color.name === 'Oq' && storage === '1 TB') vStock = 0;
+            else if (storage === '128 GB') vStock = 10;
+            else if (storage === '1 TB') vStock = 4;
+
+            variants.push({
+              id: `var-${product.id}-${color.name}-${storage}-${ram}-${model}`.replace(/\s+/g, '-').toLowerCase(),
+              color: color.name,
+              colorHex: color.hex,
+              storage,
+              ram,
+              model,
+              price: vPrice,
+              oldPrice: vPrice + 120,
+              stock: vStock,
+              image: color.image || product.images[0],
+            });
+          }
+        }
+      }
+    }
+  } else {
+    const modelOptions = models.length > 0 ? models : [''];
+    const ramOptions = normalizedRams.length > 0 ? normalizedRams : [''];
+    const storageOptions = normalizedStorages.length > 0 ? normalizedStorages : ['256 GB'];
+
+    normalizedColors.forEach((color, cIdx) => {
+      storageOptions.forEach((storage, sIdx) => {
+        ramOptions.forEach((ram, rIdx) => {
+          modelOptions.forEach((model, mIdx) => {
+            const storageAddon = sIdx === 0 ? 0 : sIdx === 1 ? 100 : sIdx === 2 ? 250 : 400;
+            const ramAddon = rIdx * 50;
+            const modelAddon = mIdx * 100;
+            const vPrice = product.price + storageAddon + ramAddon + modelAddon;
+
+            // Give each combination a realistic stock, and make one combination 0 stock for testing "Tugagan"
+            let vStock = Math.max(2, Math.floor((product.stock || 20) / Math.max(2, normalizedColors.length)) - sIdx * 2 + cIdx);
+            if (cIdx === 1 && sIdx === storageOptions.length - 1 && rIdx === 0 && mIdx === 0) {
+              vStock = 0;
+            }
+
+            variants.push({
+              id: `var-${product.id}-${cIdx}-${sIdx}-${rIdx}-${mIdx}`,
+              color: color.name,
+              colorHex: color.hex,
+              storage,
+              ram: ram || undefined,
+              model: model || undefined,
+              price: vPrice,
+              oldPrice: product.oldPrice > product.price ? product.oldPrice + storageAddon + ramAddon + modelAddon : undefined,
+              stock: vStock,
+              image: color.image || product.images[0],
+            });
+          });
+        });
+      });
+    });
+  }
+
+  return {
+    ...product,
+    colors: normalizedColors,
+    storage: normalizedStorages,
+    ram: normalizedRams,
+    models: models.length > 0 ? models : undefined,
+    variants,
+  };
+}
+
+export const initialProducts: Product[] = rawInitialProducts.map(generateProductVariants);
+
 export const initialUsers: User[] = [
   {
     id: 'user-admin-1',
@@ -879,9 +1054,9 @@ export const initialOrders: Order[] = [
       fullName: 'Sophia Chen',
       phone: '+1 (555) 492-1188',
       email: 'sophia.chen@example.com',
-      region: 'Washington',
-      city: 'Seattle',
-      address: '742 Evergreen Terr, Apt 4B',
+      region: 'Toshkent shahri',
+      city: 'Yunusobod tumani',
+      address: 'Amir Temur ko‘chasi, 44-uy',
     },
     deliveryMethod: 'express',
     paymentMethod: 'apple_pay',
@@ -889,18 +1064,21 @@ export const initialOrders: Order[] = [
       {
         productId: 'prod-iphone-17-promax',
         name: 'iPhone 17 Pro Max',
+        productName: 'iPhone 17 Pro Max',
         brand: 'Apple',
         image: 'https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=900&auto=format&fit=crop&q=80',
-        color: 'Cosmic Titanium',
-        storage: '512GB',
-        price: 1399,
+        color: 'Qora',
+        storage: '512 GB',
+        ram: '12 GB',
+        model: 'Pro Max',
+        price: 1099,
         quantity: 1,
       },
     ],
-    subtotal: 1399,
-    discount: 50,
+    subtotal: 1099,
+    discount: 0,
     deliveryFee: 15,
-    total: 1364,
+    total: 1114,
     status: 'Shipped',
     createdAt: '2026-09-21T11:45:00.000Z',
   },
@@ -912,9 +1090,9 @@ export const initialOrders: Order[] = [
       fullName: 'Marcus Brody',
       phone: '+1 (555) 883-9201',
       email: 'marcus.brody@example.com',
-      region: 'Texas',
-      city: 'Austin',
-      address: '1204 Congress Avenue',
+      region: 'Samarqand viloyati',
+      city: 'Samarqand shahri',
+      address: 'Registon ko‘chasi, 12-uy',
     },
     deliveryMethod: 'standard',
     paymentMethod: 'card',
@@ -922,10 +1100,13 @@ export const initialOrders: Order[] = [
       {
         productId: 'prod-samsung-s26-ultra',
         name: 'Samsung Galaxy S26 Ultra',
+        productName: 'Samsung Galaxy S26 Ultra',
         brand: 'Samsung',
         image: 'https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?w=900&auto=format&fit=crop&q=80',
-        color: 'Titanium Cobalt Blue',
-        storage: '512GB',
+        color: 'Ko‘k',
+        storage: '512 GB',
+        ram: '16 GB',
+        model: 'Ultra',
         price: 1349,
         quantity: 1,
       },
@@ -942,11 +1123,11 @@ export const initialOrders: Order[] = [
     orderNumber: 'NVM-98243',
     customer: {
       fullName: 'Elena Rostova',
-      phone: '+1 (555) 304-9912',
+      phone: '+998 90 304 99 12',
       email: 'elena.rostova@example.com',
-      region: 'New York',
-      city: 'New York City',
-      address: '350 5th Ave, Floor 44',
+      region: 'Toshkent shahri',
+      city: 'Mirzo Ulug‘bek tumani',
+      address: 'Mustaqillik shoh ko‘chasi, 35-uy',
     },
     deliveryMethod: 'standard',
     paymentMethod: 'cod',
@@ -954,10 +1135,13 @@ export const initialOrders: Order[] = [
       {
         productId: 'prod-nothing-phone-4-pro',
         name: 'Nothing Phone (4) Pro',
+        productName: 'Nothing Phone (4) Pro',
         brand: 'Nothing',
         image: 'https://images.unsplash.com/photo-1592899677977-9c10ca588bbd?w=900&auto=format&fit=crop&q=80',
-        color: 'Transparent Dark',
-        storage: '256GB',
+        color: 'Qora',
+        storage: '256 GB',
+        ram: '12 GB',
+        model: 'Pro',
         price: 799,
         quantity: 1,
       },
@@ -974,11 +1158,11 @@ export const initialOrders: Order[] = [
     orderNumber: 'NVM-98244',
     customer: {
       fullName: 'David Miller',
-      phone: '+1 (555) 712-4409',
+      phone: '+998 93 712 44 09',
       email: 'david.m@example.com',
-      region: 'Illinois',
-      city: 'Chicago',
-      address: '233 S Wacker Dr',
+      region: 'Buxoro viloyati',
+      city: 'Buxoro shahri',
+      address: 'Navoiy shoh ko‘chasi, 23-uy',
     },
     deliveryMethod: 'pickup',
     paymentMethod: 'card',
@@ -986,10 +1170,13 @@ export const initialOrders: Order[] = [
       {
         productId: 'prod-oneplus-14-pro',
         name: 'OnePlus 14 Pro',
+        productName: 'OnePlus 14 Pro',
         brand: 'OnePlus',
         image: 'https://images.unsplash.com/photo-1580910051074-3eb694886505?w=900&auto=format&fit=crop&q=80',
-        color: 'Emerald Forest',
-        storage: '512GB',
+        color: 'Zumrad yashil',
+        storage: '512 GB',
+        ram: '16 GB',
+        model: 'Pro',
         price: 949,
         quantity: 1,
       },
@@ -1008,9 +1195,9 @@ export const initialReviews: Review[] = [
     id: 'rev-1',
     productId: 'prod-iphone-17-promax',
     productName: 'iPhone 17 Pro Max',
-    customerName: 'Marcus Sterling',
+    customerName: 'Sardor Rahimov',
     rating: 5,
-    review: 'The titanium finish feels weightless in the hand, and the 5x optical telephoto clarity is unmatched. The 3000-nit outdoor visibility makes midday shooting effortless.',
+    review: 'Titan korpus qo‘lda juda yengil va qulay seziladi, 5x optik telefoto linza aniqligi esa tengsizdir. 3000 nit yorqinlik quyoshda ham ekranni bemalol ko‘rish imkonini beradi.',
     date: '2026-09-19',
     status: 'approved',
   },
@@ -1018,9 +1205,9 @@ export const initialReviews: Review[] = [
     id: 'rev-2',
     productId: 'prod-iphone-17-promax',
     productName: 'iPhone 17 Pro Max',
-    customerName: 'Claire Duhamel',
+    customerName: 'Madina Karimova',
     rating: 5,
-    review: 'Battery lasts almost two full working days with moderate 5G usage. Truly the best iPhone Apple has ever built.',
+    review: 'Faol 5G foydalanishda ham batareyasi deyarli ikki to‘liq ish kuniga yetadi. Haqiqatan ham Apple yaratgan eng mukammal iPhone.',
     date: '2026-09-20',
     status: 'approved',
   },
@@ -1028,9 +1215,9 @@ export const initialReviews: Review[] = [
     id: 'rev-3',
     productId: 'prod-samsung-s26-ultra',
     productName: 'Samsung Galaxy S26 Ultra',
-    customerName: 'Derrick Wong',
+    customerName: 'Javohir Aliyev',
     rating: 5,
-    review: 'The anti-reflective glass makes reading PDFs and annotating with the S-Pen feel like paper. Performance in emulator gaming is staggering.',
+    review: 'Nursizlantiruvchi oyna PDF hujjatlarni o‘qish va S-Pen bilan yozishni xuddi qog‘ozdagidek qulay qiladi. O‘yinlardagi tezligi hayratlanarli darajada.',
     date: '2026-09-21',
     status: 'approved',
   },
@@ -1038,9 +1225,9 @@ export const initialReviews: Review[] = [
     id: 'rev-4',
     productId: 'prod-nothing-phone-4-pro',
     productName: 'Nothing Phone (4) Pro',
-    customerName: 'Aria Patel',
+    customerName: 'Dilnoza Usmanova',
     rating: 5,
-    review: 'The Glyph interface is genuinely useful once configured for food delivery and VIP chats. Striking aesthetics and zero software bloat.',
+    review: 'Glyph yoritish interfeysi yetkazib berish xizmatlari va muhim xabarlar uchun juda foydali ekan. Dizayni betakror va tizimda ortiqcha ilovalar yo‘q.',
     date: '2026-09-22',
     status: 'approved',
   },
@@ -1048,9 +1235,9 @@ export const initialReviews: Review[] = [
     id: 'rev-5',
     productId: 'prod-oneplus-14-pro',
     productName: 'OnePlus 14 Pro',
-    customerName: 'Liam O\'Connor',
+    customerName: 'Bekzod Tursunov',
     rating: 5,
-    review: 'Charges from 2% to 100% in under 20 minutes with the 150W charger included in the box. Hasselblad color science gives portraits natural warmth.',
+    review: 'Qutidagi 150W quvvatlagich bilan 2% dan 100% gacha 20 daqiqaga yetmay to‘ladi. Hasselblad kamerasi portret suratlarni tabiiy va tiniq oladi.',
     date: '2026-09-23',
     status: 'approved',
   },
@@ -1107,24 +1294,24 @@ export const initialDeals: Deal[] = [
 export const initialBanners: Banner[] = [
   {
     id: 'ban-1',
-    title: 'THE FUTURE IN YOUR HANDS',
-    subtitle: 'Discover ultra-premium flagship smartphones, aerospace titanium craftsmanship and intelligent AI architectures.',
+    title: 'KELAJAK SIZNING QO‘LINGIZDA',
+    subtitle: 'Ultra-premium flagman smartfonlar, aerokosmik titan korpus va sun’iy intellekt texnologiyalarini kashf eting.',
     image: 'https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?w=1600&auto=format&fit=crop&q=80',
-    buttonText: 'EXPLORE FLAGSHIPS',
+    buttonText: 'FLAGMANLARNI KO‘RISH',
     buttonLink: '/phones',
-    badge: 'NEW GENERATION 2026',
+    badge: 'YANGI AVLOD 2026',
     startDate: '2026-09-01T00:00:00.000Z',
     endDate: '2026-12-31T23:59:59.000Z',
     status: 'active',
   },
   {
     id: 'ban-2',
-    title: 'LIMITED FLASH SALE: SAVE UP TO $200',
-    subtitle: 'Exclusive discounts on select Galaxy S26 Ultra, iPhone 17 Pro Max, and Nothing Phone 4 Pro series.',
+    title: 'MAXSUS AKSIYA: $200 GACHA CHEGIRMA',
+    subtitle: 'Tanlangan Galaxy S26 Ultra, iPhone 17 Pro Max va Nothing Phone 4 Pro modellariga eksklyuziv chegirmalar.',
     image: 'https://images.unsplash.com/photo-1580910051074-3eb694886505?w=1600&auto=format&fit=crop&q=80',
-    buttonText: 'VIEW FLASH DEALS',
+    buttonText: 'CHEGIRMALARNI KO‘RISH',
     buttonLink: '/deals',
-    badge: 'LIMITED TIME OFFER',
+    badge: 'VAQT CHEGARALANGAN',
     startDate: '2026-09-15T00:00:00.000Z',
     endDate: '2026-10-05T23:59:59.000Z',
     status: 'active',
@@ -1135,8 +1322,8 @@ export const initialNotifications: NotificationItem[] = [
   {
     id: 'notif-1',
     type: 'order',
-    title: 'New Order Received #NVM-98243',
-    message: 'Elena Rostova placed an order for Nothing Phone (4) Pro ($769.00).',
+    title: 'Yangi buyurtma qabul qilindi #NVM-98243',
+    message: 'Elena Rostova Nothing Phone (4) Pro ($769.00) uchun buyurtma berdi.',
     read: false,
     createdAt: '2026-09-24T08:10:00.000Z',
     link: '/admin/orders',
@@ -1144,8 +1331,8 @@ export const initialNotifications: NotificationItem[] = [
   {
     id: 'notif-2',
     type: 'low_stock',
-    title: 'Low Stock Alert: Honor Magic V3 Fold',
-    message: 'Stock is currently at 8 units (Threshold: 10 units). Consider restocking.',
+    title: 'Mahsulot kamaydi: Honor Magic V3 Fold',
+    message: 'Omborda hozirda 8 dona qoldi (Chegara: 10 dona). Zaxirani to‘ldirish tavsiya etiladi.',
     read: false,
     createdAt: '2026-09-23T14:30:00.000Z',
     link: '/admin/inventory',
@@ -1153,8 +1340,8 @@ export const initialNotifications: NotificationItem[] = [
   {
     id: 'notif-3',
     type: 'review',
-    title: 'New Review Submitted',
-    message: 'Marcus Sterling left a 5-star review for iPhone 17 Pro Max.',
+    title: 'Yangi sharh qoldirildi',
+    message: 'Sardor Rahimov iPhone 17 Pro Max uchun 5 yulduzli sharh qoldirdi.',
     read: true,
     createdAt: '2026-09-21T12:00:00.000Z',
     link: '/admin/reviews',
@@ -1162,8 +1349,8 @@ export const initialNotifications: NotificationItem[] = [
   {
     id: 'notif-4',
     type: 'customer',
-    title: 'New Customer Registered',
-    message: 'Sophia Chen joined NOVA MOBILE ecosystem.',
+    title: 'Yangi mijoz ro‘yxatdan o‘tdi',
+    message: 'Sophia Chen NOVA MOBILE tizimiga qo‘shildi.',
     read: true,
     createdAt: '2026-02-14T14:32:00.000Z',
     link: '/admin/customers',
@@ -1174,9 +1361,9 @@ export const initialSettings: StoreSettings = {
   store: {
     name: 'NOVA MOBILE',
     logo: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=300&auto=format&fit=crop&q=80',
-    phone: '+1 (800) 890-NOVA',
+    phone: '+998 (71) 200-88-99',
     email: 'support@novamobile.store',
-    address: '400 Technology Way, Silicon District, San Francisco, CA 94105',
+    address: 'Toshkent sh., Tashkent City, Boulevard, 14-uy',
     socialLinks: {
       instagram: 'https://instagram.com/novamobile',
       telegram: 'https://t.me/novamobile',

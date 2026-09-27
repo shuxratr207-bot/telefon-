@@ -1,382 +1,447 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
 import {
-  Search,
-  Filter,
   SlidersHorizontal,
+  Search,
   X,
-  ChevronDown,
   RotateCcw,
-  Sparkles,
-  Smartphone,
-  Check,
+  Star,
+  AlertCircle,
+  LayoutGrid,
+  List,
 } from 'lucide-react';
-import { Product, Brand } from '../types/index.ts';
+import { Product } from '../types/index.ts';
 import { api } from '../services/api.ts';
 import { ProductCard } from '../components/common/ProductCard.tsx';
+import { useLanguage } from '../context/LanguageContext.tsx';
 
 interface PhonesPageProps {
-  onNavigate: (path: string) => void;
   initialBrand?: string;
   initialSearch?: string;
+  initialSort?: string;
+  onNavigate: (path: string) => void;
 }
 
-export const PhonesPage: React.FC<PhonesPageProps> = ({ onNavigate, initialBrand, initialSearch }) => {
+export const PhonesPage: React.FC<PhonesPageProps> = ({
+  initialBrand = '',
+  initialSearch = '',
+  initialSort = 'popular',
+  onNavigate,
+}) => {
+  const { t } = useLanguage();
   const [products, setProducts] = useState<Product[]>([]);
-  const [brands, setBrands] = useState<Brand[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [gridCols, setGridCols] = useState<3 | 4>(3);
 
-  // Search & Filter State
-  const [searchQuery, setSearchQuery] = useState(initialSearch || '');
-  const [selectedBrands, setSelectedBrands] = useState<string[]>(initialBrand ? [initialBrand] : []);
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 2500]);
-  const [selectedRam, setSelectedRam] = useState<string[]>([]);
-  const [selectedStorage, setSelectedStorage] = useState<string[]>([]);
+  // Filter States
+  const [searchQuery, setSearchQuery] = useState(initialSearch);
+  const [selectedBrands, setSelectedBrands] = useState<string[]>(
+    initialBrand ? [initialBrand] : []
+  );
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [maxPrice, setMaxPrice] = useState<number>(2500);
+  const [selectedRam, setSelectedRam] = useState<string>('');
+  const [selectedStorage, setSelectedStorage] = useState<string>('');
+  const [selectedColor, setSelectedColor] = useState<string>('');
+  const [selectedOs, setSelectedOs] = useState<string>('');
   const [minRating, setMinRating] = useState<number>(0);
-  const [onlyInStock, setOnlyInStock] = useState<boolean>(false);
-  const [sortBy, setSortBy] = useState<string>('popular');
-  const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
+  const [inStockOnly, setInStockOnly] = useState<boolean>(false);
+  const [sortBy, setSortBy] = useState<string>(initialSort || 'popular');
+
+  const fetchCatalog = () => {
+    setLoading(true);
+    setError(false);
+    api
+      .getProducts()
+      .then((res) => {
+        setProducts(res.products);
+        setLoading(false);
+      })
+      .catch(() => {
+        setError(true);
+        setLoading(false);
+      });
+  };
 
   useEffect(() => {
-    async function fetchData() {
-      setIsLoading(true);
-      try {
-        const [prodRes, brandRes] = await Promise.all([
-          api.getProducts(),
-          api.getBrands(),
-        ]);
-        setProducts(prodRes.products);
-        setBrands(brandRes.brands);
-      } catch (err) {
-        console.error('Fetch error:', err);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    fetchData();
+    fetchCatalog();
   }, []);
 
-  const ramOptions = ['8GB', '12GB', '16GB', '24GB'];
-  const storageOptions = ['128GB', '256GB', '512GB', '1TB'];
-  const categoryOptions = ['all', 'Flagship', 'Foldable', 'Gaming', 'Mid Range', 'Budget'];
+  useEffect(() => {
+    if (initialBrand) setSelectedBrands([initialBrand]);
+  }, [initialBrand]);
 
-  const toggleBrand = (brandName: string) => {
-    setSelectedBrands(prev =>
-      prev.includes(brandName) ? prev.filter(b => b !== brandName) : [...prev, brandName]
-    );
-  };
+  useEffect(() => {
+    setSearchQuery(initialSearch);
+  }, [initialSearch]);
 
-  const toggleRam = (ram: string) => {
-    setSelectedRam(prev =>
-      prev.includes(ram) ? prev.filter(r => r !== ram) : [...prev, ram]
-    );
-  };
+  const brandsList = ['Apple', 'Samsung', 'Xiaomi', 'Google', 'OnePlus', 'Nothing', 'Honor', 'Huawei'];
+  const categoriesList = [
+    { value: 'Flagship', label: 'Flagman' },
+    { value: 'Foldable', label: 'Bukiluvchan' },
+    { value: 'Gaming', label: 'O‘yin uchun' },
+    { value: 'Mid Range', label: 'O‘rta sinf' },
+    { value: 'Budget', label: 'Hamyonbop' },
+  ];
+  const ramList = ['8 GB', '12 GB', '16 GB', '24 GB'];
+  const storageList = ['128 GB', '256 GB', '512 GB', '1 TB'];
+  const colorList = ['Qora', 'Oq', 'Ko‘k', 'Tabiiy titan', 'Binafsha', 'Zumrad yashil', 'Kumush', 'Oltin'];
+  const osList = ['iOS', 'Android'];
 
-  const toggleStorage = (stg: string) => {
-    setSelectedStorage(prev =>
-      prev.includes(stg) ? prev.filter(s => s !== stg) : [...prev, stg]
-    );
+  const normAttr = (val?: string) => (val || '').toLowerCase().replace(/\s+/g, '').replace(/ram$/i, '').trim();
+
+  const toggleArrayFilter = (list: string[], item: string, setter: (val: string[]) => void) => {
+    if (list.includes(item)) {
+      setter(list.filter((i) => i !== item));
+    } else {
+      setter([...list, item]);
+    }
   };
 
   const resetFilters = () => {
     setSearchQuery('');
     setSelectedBrands([]);
-    setSelectedCategory('all');
-    setPriceRange([0, 2500]);
-    setSelectedRam([]);
-    setSelectedStorage([]);
+    setSelectedCategories([]);
+    setMaxPrice(2500);
+    setSelectedRam('');
+    setSelectedStorage('');
+    setSelectedColor('');
+    setSelectedOs('');
     setMinRating(0);
-    setOnlyInStock(false);
+    setInStockOnly(false);
     setSortBy('popular');
   };
 
-  const hasActiveFilters =
-    searchQuery.trim() !== '' ||
-    selectedBrands.length > 0 ||
-    selectedCategory !== 'all' ||
-    priceRange[0] > 0 ||
-    priceRange[1] < 2500 ||
-    selectedRam.length > 0 ||
-    selectedStorage.length > 0 ||
-    minRating > 0 ||
-    onlyInStock;
-
-  // Filter & sort logic
   const filteredProducts = useMemo(() => {
-    let result = [...products];
-
-    // Search query
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      result = result.filter(
-        p =>
-          p.name.toLowerCase().includes(q) ||
-          p.brand.toLowerCase().includes(q) ||
-          p.description.toLowerCase().includes(q) ||
-          p.processor.toLowerCase().includes(q) ||
-          p.storage.some(s => s.toLowerCase().includes(q))
-      );
-    }
-
-    // Brands
-    if (selectedBrands.length > 0) {
-      result = result.filter(p =>
-        selectedBrands.some(b => b.toLowerCase() === p.brand.toLowerCase())
-      );
-    }
-
-    // Category
-    if (selectedCategory !== 'all') {
-      result = result.filter(p => p.category.toLowerCase() === selectedCategory.toLowerCase());
-    }
-
-    // Price
-    result = result.filter(p => p.price >= priceRange[0] && p.price <= priceRange[1]);
-
-    // RAM
-    if (selectedRam.length > 0) {
-      result = result.filter(p =>
-        p.ram.some(r => selectedRam.some(sr => r.toLowerCase().includes(sr.toLowerCase())))
-      );
-    }
-
-    // Storage
-    if (selectedStorage.length > 0) {
-      result = result.filter(p =>
-        p.storage.some(s => selectedStorage.some(ss => s.toLowerCase().includes(ss.toLowerCase())))
-      );
-    }
-
-    // Rating
-    if (minRating > 0) {
-      result = result.filter(p => p.rating >= minRating);
-    }
-
-    // In Stock
-    if (onlyInStock) {
-      result = result.filter(p => p.stock > 0);
-    }
-
-    // Sorting
-    switch (sortBy) {
-      case 'price-asc':
-        result.sort((a, b) => a.price - b.price);
-        break;
-      case 'price-desc':
-        result.sort((a, b) => b.price - a.price);
-        break;
-      case 'rating':
-        result.sort((a, b) => b.rating - a.rating);
-        break;
-      case 'newest':
-        result.sort((a, b) => (b.newArrival ? 1 : 0) - (a.newArrival ? 1 : 0));
-        break;
-      case 'popular':
-      default:
-        result.sort((a, b) => b.reviews - a.reviews);
-        break;
-    }
-
-    return result;
+    return products
+      .filter((p) => {
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase();
+          const qNorm = normAttr(q);
+          const matchName = p.name.toLowerCase().includes(q);
+          const matchBrand = p.brand.toLowerCase().includes(q);
+          const matchSpec =
+            (p.processor || '').toLowerCase().includes(q) ||
+            (p.category || '').toLowerCase().includes(q) ||
+            (p.storage || []).some((s) => normAttr(s).includes(qNorm)) ||
+            (p.ram || []).some((r) => normAttr(r).includes(qNorm)) ||
+            (p.colors || []).some((c) => c.name.toLowerCase().includes(q)) ||
+            (p.variants || []).some(
+              (v) =>
+                (v.color && v.color.toLowerCase().includes(q)) ||
+                (v.storage && normAttr(v.storage).includes(qNorm)) ||
+                (v.ram && normAttr(v.ram).includes(qNorm))
+            );
+          if (!matchName && !matchBrand && !matchSpec) return false;
+        }
+        if (selectedBrands.length > 0 && !selectedBrands.includes(p.brand)) return false;
+        if (selectedCategories.length > 0 && !selectedCategories.includes(p.category)) return false;
+        if (p.price > maxPrice) return false;
+        if (selectedRam) {
+          const targetRam = normAttr(selectedRam);
+          const hasRam =
+            (p.ram || []).some((r) => normAttr(r) === targetRam || normAttr(r).includes(targetRam)) ||
+            (p.variants || []).some((v) => v.ram && normAttr(v.ram) === targetRam);
+          if (!hasRam) return false;
+        }
+        if (selectedStorage) {
+          const targetStorage = normAttr(selectedStorage);
+          const hasStorage =
+            (p.storage || []).some((s) => normAttr(s) === targetStorage) ||
+            (p.variants || []).some((v) => v.storage && normAttr(v.storage) === targetStorage);
+          if (!hasStorage) return false;
+        }
+        if (selectedColor) {
+          const targetColor = normAttr(selectedColor);
+          const hasColor =
+            (p.colors || []).some((c) => normAttr(c.name).includes(targetColor)) ||
+            (p.variants || []).some((v) => v.color && normAttr(v.color).includes(targetColor));
+          if (!hasColor) return false;
+        }
+        if (selectedOs && !(p.os || '').toLowerCase().includes(selectedOs.toLowerCase()))
+          return false;
+        if (minRating > 0 && p.rating < minRating) return false;
+        if (inStockOnly && p.stock <= 0) return false;
+        return true;
+      })
+      .sort((a, b) => {
+        switch (sortBy) {
+          case 'price-asc':
+            return a.price - b.price;
+          case 'price-desc':
+            return b.price - a.price;
+          case 'rating':
+            return b.rating - a.rating;
+          case 'newest':
+            return (b.newArrival ? 1 : 0) - (a.newArrival ? 1 : 0);
+          default:
+            return b.reviews - a.reviews;
+        }
+      });
   }, [
     products,
     searchQuery,
     selectedBrands,
-    selectedCategory,
-    priceRange,
+    selectedCategories,
+    maxPrice,
     selectedRam,
     selectedStorage,
+    selectedColor,
+    selectedOs,
     minRating,
-    onlyInStock,
+    inStockOnly,
     sortBy,
   ]);
 
-  // Sidebar Filter Form Component
-  const FilterContent = (
+  const FilterPanelContent = () => (
     <div className="space-y-6">
-      {/* Category Tabs */}
+      <div className="flex items-center justify-between pb-4 border-b border-white/10">
+        <div className="flex items-center gap-2 font-['Space_Grotesk'] font-bold text-white">
+          <SlidersHorizontal className="w-4 h-4 text-cyan-400" />
+          <span>{t('catalog.filters')}</span>
+        </div>
+        <button
+          onClick={resetFilters}
+          className="text-xs font-semibold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 cursor-pointer"
+        >
+          <RotateCcw className="w-3 h-3" />
+          <span>{t('catalog.clearAll')}</span>
+        </button>
+      </div>
+
+      {/* Brand Filter */}
       <div>
-        <h4 className="text-xs uppercase tracking-wider font-bold text-slate-400 mb-2.5">
-          Device Category
+        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
+          {t('catalog.brand')}
+        </h4>
+        <div className="space-y-2">
+          {brandsList.map((brand) => (
+            <label
+              key={brand}
+              className="flex items-center justify-between cursor-pointer group text-sm"
+            >
+              <div className="flex items-center gap-2.5">
+                <input
+                  type="checkbox"
+                  checked={selectedBrands.includes(brand)}
+                  onChange={() =>
+                    toggleArrayFilter(selectedBrands, brand, setSelectedBrands)
+                  }
+                  className="w-4 h-4 rounded border-white/20 bg-white/5 accent-cyan-500"
+                />
+                <span className="text-slate-300 group-hover:text-white transition-colors">
+                  {brand}
+                </span>
+              </div>
+              <span className="text-xs text-slate-500">
+                ({products.filter((p) => p.brand === brand).length})
+              </span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* Price Range */}
+      <div className="pt-4 border-t border-white/10">
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+            {t('catalog.priceRange')}
+          </h4>
+          <span className="text-xs font-bold text-cyan-400">${maxPrice.toLocaleString()}</span>
+        </div>
+        <input
+          type="range"
+          min={200}
+          max={2500}
+          step={50}
+          value={maxPrice}
+          onChange={(e) => setMaxPrice(Number(e.target.value))}
+          className="w-full accent-cyan-500 cursor-pointer"
+        />
+        <div className="flex justify-between text-[11px] text-slate-500 mt-1">
+          <span>$200</span>
+          <span>$2,500</span>
+        </div>
+      </div>
+
+      {/* Category */}
+      <div className="pt-4 border-t border-white/10">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
+          {t('admin.products.category')}
         </h4>
         <div className="flex flex-wrap gap-1.5">
-          {categoryOptions.map(cat => (
+          {categoriesList.map((cat) => (
             <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${
-                selectedCategory === cat
-                  ? 'bg-cyan-500 text-black shadow-md shadow-cyan-500/20 font-bold'
-                  : 'bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white'
+              key={cat.value}
+              onClick={() =>
+                toggleArrayFilter(selectedCategories, cat.value, setSelectedCategories)
+              }
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                selectedCategories.includes(cat.value)
+                  ? 'bg-cyan-500 text-black font-bold shadow-md shadow-cyan-500/25'
+                  : 'bg-white/[0.04] text-slate-400 hover:text-white border border-white/5'
               }`}
             >
-              {cat}
+              {cat.label}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Brands */}
-      <div>
-        <h4 className="text-xs uppercase tracking-wider font-bold text-slate-400 mb-2.5">
-          Brand
+      {/* RAM */}
+      <div className="pt-4 border-t border-white/10">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
+          {t('catalog.ram')}
         </h4>
-        <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-          {brands.map(brand => {
-            const isChecked = selectedBrands.includes(brand.name);
-            return (
-              <label
-                key={brand.id}
-                className="flex items-center justify-between p-2 rounded-xl hover:bg-white/5 cursor-pointer text-sm text-slate-300 transition-colors"
-              >
-                <div className="flex items-center gap-2.5">
-                  <div
-                    className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${
-                      isChecked
-                        ? 'bg-cyan-500 border-cyan-400 text-black'
-                        : 'border-white/20 bg-black/40'
-                    }`}
-                  >
-                    {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
-                  </div>
-                  <span>{brand.name}</span>
-                </div>
-                <span className="text-xs text-slate-500 font-mono">
-                  {products.filter(p => p.brand.toLowerCase() === brand.name.toLowerCase()).length}
-                </span>
-              </label>
-            );
-          })}
+        <div className="grid grid-cols-3 gap-2">
+          {ramList.map((ram) => (
+            <button
+              key={ram}
+              onClick={() => setSelectedRam(selectedRam === ram ? '' : ram)}
+              className={`py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                selectedRam === ram
+                  ? 'bg-cyan-500/20 border-cyan-500 text-cyan-300'
+                  : 'bg-white/[0.02] border-white/10 text-slate-400 hover:text-white'
+              }`}
+            >
+              {ram}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Price Range Slider */}
-      <div>
-        <div className="flex items-center justify-between text-xs font-bold text-slate-400 mb-2">
-          <span className="uppercase tracking-wider">Price Range</span>
-          <span className="text-cyan-400 font-mono">${priceRange[0]} — ${priceRange[1]}</span>
-        </div>
-        <input
-          type="range"
-          min="200"
-          max="2500"
-          step="50"
-          value={priceRange[1]}
-          onChange={e => setPriceRange([priceRange[0], Number(e.target.value)])}
-          className="w-full accent-cyan-400 cursor-pointer"
-        />
-        <div className="flex justify-between text-[10px] text-slate-500 font-mono mt-1">
-          <span>$200</span>
-          <span>$1,000</span>
-          <span>$2,500</span>
-        </div>
-      </div>
-
-      {/* RAM Selection */}
-      <div>
-        <h4 className="text-xs uppercase tracking-wider font-bold text-slate-400 mb-2.5">
-          RAM Memory
+      {/* Storage */}
+      <div className="pt-4 border-t border-white/10">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
+          {t('catalog.storage')}
         </h4>
         <div className="grid grid-cols-2 gap-2">
-          {ramOptions.map(ram => {
-            const active = selectedRam.includes(ram);
-            return (
-              <button
-                key={ram}
-                onClick={() => toggleRam(ram)}
-                className={`py-2 px-3 rounded-xl text-xs font-semibold border transition-all ${
-                  active
-                    ? 'bg-cyan-950/60 border-cyan-500 text-cyan-300 shadow-sm shadow-cyan-500/20'
-                    : 'bg-white/5 border-white/10 text-slate-300 hover:border-white/20'
-                }`}
-              >
-                {ram}
-              </button>
-            );
-          })}
+          {storageList.map((st) => (
+            <button
+              key={st}
+              onClick={() => setSelectedStorage(selectedStorage === st ? '' : st)}
+              className={`py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                selectedStorage === st
+                  ? 'bg-purple-600/20 border-purple-500 text-purple-300'
+                  : 'bg-white/[0.02] border-white/10 text-slate-400 hover:text-white'
+              }`}
+            >
+              {st}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Storage Selection */}
-      <div>
-        <h4 className="text-xs uppercase tracking-wider font-bold text-slate-400 mb-2.5">
-          Internal Storage
+      {/* Color (Rang) */}
+      <div className="pt-4 border-t border-white/10">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
+          Rang
+        </h4>
+        <div className="flex flex-wrap gap-1.5">
+          {colorList.map((col) => (
+            <button
+              key={col}
+              onClick={() => setSelectedColor(selectedColor === col ? '' : col)}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                selectedColor === col
+                  ? 'bg-cyan-500/20 border-cyan-500 text-cyan-300'
+                  : 'bg-white/[0.02] border-white/10 text-slate-400 hover:text-white'
+              }`}
+            >
+              {col}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Operating System */}
+      <div className="pt-4 border-t border-white/10">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
+          {t('catalog.os')}
         </h4>
         <div className="grid grid-cols-2 gap-2">
-          {storageOptions.map(stg => {
-            const active = selectedStorage.includes(stg);
-            return (
-              <button
-                key={stg}
-                onClick={() => toggleStorage(stg)}
-                className={`py-2 px-3 rounded-xl text-xs font-semibold border transition-all ${
-                  active
-                    ? 'bg-cyan-950/60 border-cyan-500 text-cyan-300 shadow-sm shadow-cyan-500/20'
-                    : 'bg-white/5 border-white/10 text-slate-300 hover:border-white/20'
-                }`}
-              >
-                {stg}
-              </button>
-            );
-          })}
+          {osList.map((os) => (
+            <button
+              key={os}
+              onClick={() => setSelectedOs(selectedOs === os ? '' : os)}
+              className={`py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                selectedOs === os
+                  ? 'bg-cyan-500/20 border-cyan-500 text-cyan-300'
+                  : 'bg-white/[0.02] border-white/10 text-slate-400 hover:text-white'
+              }`}
+            >
+              {os}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* In-Stock Toggle */}
-      <div className="pt-2 border-t border-white/5">
-        <label className="flex items-center justify-between p-2 rounded-xl hover:bg-white/5 cursor-pointer text-sm text-slate-300">
-          <span>In Stock Only</span>
+      {/* Minimum Rating */}
+      <div className="pt-4 border-t border-white/10">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
+          {t('catalog.rating')}
+        </h4>
+        <div className="flex gap-2">
+          {[4.5, 4.7, 4.9].map((r) => (
+            <button
+              key={r}
+              onClick={() => setMinRating(minRating === r ? 0 : r)}
+              className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                minRating === r
+                  ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
+                  : 'bg-white/[0.02] border-white/10 text-slate-400'
+              }`}
+            >
+              <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+              <span>{r}+</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Availability */}
+      <div className="pt-4 border-t border-white/10">
+        <label className="flex items-center justify-between cursor-pointer">
+          <span className="text-sm font-medium text-slate-300">{t('catalog.inStockOnly')}</span>
           <input
             type="checkbox"
-            checked={onlyInStock}
-            onChange={e => setOnlyInStock(e.target.checked)}
-            className="w-4 h-4 rounded accent-cyan-400"
+            checked={inStockOnly}
+            onChange={(e) => setInStockOnly(e.target.checked)}
+            className="w-4 h-4 rounded border-white/20 bg-white/5 accent-cyan-500"
           />
         </label>
       </div>
-
-      {/* Reset button */}
-      {hasActiveFilters && (
-        <button
-          onClick={resetFilters}
-          className="w-full py-2.5 px-4 rounded-xl border border-rose-500/30 bg-rose-950/20 hover:bg-rose-950/40 text-rose-300 text-xs font-bold transition-all flex items-center justify-center gap-2"
-        >
-          <RotateCcw className="w-3.5 h-3.5" />
-          Clear All Filters
-        </button>
-      )}
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-[#090a0f] text-slate-100 pt-28 pb-20">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen py-8 sm:py-12">
+      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10">
         {/* Page Header */}
-        <div className="mb-8">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950/40 border border-cyan-500/30 text-cyan-400 text-xs font-semibold mb-2">
-            <Smartphone className="w-3.5 h-3.5" />
-            <span>AUTHENTIC FLAGSHIP CATALOG</span>
+        <div className="mb-8 p-6 sm:p-10 rounded-3xl bg-gradient-to-r from-[#0F172A] via-[#0D1326] to-[#130F26] border border-white/10 relative overflow-hidden">
+          <div className="relative z-10 max-w-2xl">
+            <span className="text-xs font-bold uppercase tracking-widest text-cyan-400 block mb-2">
+              {t('catalog.badge')}
+            </span>
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-['Space_Grotesk'] font-extrabold text-white tracking-tight mb-2">
+              {t('catalog.title')}
+            </h1>
+            <p className="text-slate-400 text-sm sm:text-base">{t('catalog.subtitle')}</p>
           </div>
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white font-['Space_Grotesk']">
-            Explore All Smartphones
-          </h1>
-          <p className="text-sm text-slate-400 mt-1 max-w-xl">
-            Compare flagship models across Apple, Samsung, Google, Xiaomi, and more. Filter by processor, display refresh rate, and cameras.
-          </p>
         </div>
 
-        {/* Top Control Bar: Search Input, Sorting, Mobile Filter Button */}
-        <div className="bg-[#0d0f17] border border-white/10 rounded-2xl p-3 sm:p-4 mb-8 flex flex-col md:flex-row items-center justify-between gap-4 shadow-xl">
-          {/* Search Bar */}
-          <div className="relative w-full md:w-96">
-            <Search className="w-4 h-4 text-cyan-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+        {/* Top Controls Bar */}
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 mb-8">
+          {/* Search Input */}
+          <div className="relative flex-1 max-w-md">
+            <Search className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search smartphones, brands or features..."
-              className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-sm text-white placeholder-slate-400 focus:outline-none focus:border-cyan-400"
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={t('nav.searchPlaceholder')}
+              className="w-full pl-11 pr-10 py-3 rounded-xl bg-[#0d0f17] border border-white/10 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400"
             />
             {searchQuery && (
               <button
@@ -388,152 +453,168 @@ export const PhonesPage: React.FC<PhonesPageProps> = ({ onNavigate, initialBrand
             )}
           </div>
 
-          {/* Right Controls: Count, Sort Dropdown & Mobile Trigger */}
-          <div className="flex items-center justify-between md:justify-end w-full md:w-auto gap-3">
-            <span className="text-xs text-slate-400 whitespace-nowrap">
-              Showing <strong className="text-white">{filteredProducts.length}</strong> devices
+          <div className="flex items-center justify-between sm:justify-end gap-3">
+            <button
+              onClick={() => setMobileFiltersOpen(true)}
+              className="lg:hidden flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.05] border border-white/10 text-sm font-semibold text-white"
+            >
+              <SlidersHorizontal className="w-4 h-4 text-cyan-400" />
+              <span>{t('catalog.filters')}</span>
+            </button>
+
+            <span className="text-xs sm:text-sm text-slate-400">
+              {t('catalog.showing')}{' '}
+              <strong className="text-white">{filteredProducts.length}</strong>{' '}
+              {t('catalog.devices')}
             </span>
 
-            {/* Sort Select */}
-            <div className="flex items-center gap-2">
-              <span className="hidden sm:inline text-xs text-slate-400">Sort:</span>
-              <select
-                value={sortBy}
-                onChange={e => setSortBy(e.target.value)}
-                className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 focus:outline-none focus:border-cyan-400 cursor-pointer"
+            {/* Desktop Column Density Toggle */}
+            <div className="hidden xl:flex items-center gap-1 p-1 rounded-xl bg-[#0d0f17] border border-white/10">
+              <button
+                onClick={() => setGridCols(3)}
+                className={`p-1.5 rounded-lg transition-colors ${
+                  gridCols === 3 ? 'bg-cyan-500 text-black' : 'text-slate-400 hover:text-white'
+                }`}
+                title="3 Columns"
               >
-                <option value="popular" className="bg-[#0d0f17]">Most Popular</option>
-                <option value="newest" className="bg-[#0d0f17]">Newest</option>
-                <option value="price-asc" className="bg-[#0d0f17]">Price: Low to High</option>
-                <option value="price-desc" className="bg-[#0d0f17]">Price: High to Low</option>
-                <option value="rating" className="bg-[#0d0f17]">Highest Rated</option>
-              </select>
+                <List className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setGridCols(4)}
+                className={`p-1.5 rounded-lg transition-colors ${
+                  gridCols === 4 ? 'bg-cyan-500 text-black' : 'text-slate-400 hover:text-white'
+                }`}
+                title="4 Columns"
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </button>
             </div>
 
-            {/* Mobile Filter Toggle */}
-            <button
-              onClick={() => setIsMobileFilterOpen(true)}
-              className="md:hidden flex items-center gap-2 px-3 py-2 rounded-xl bg-cyan-950/40 border border-cyan-500/30 text-cyan-300 text-xs font-bold"
-            >
-              <Filter className="w-4 h-4" />
-              <span>Filters</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-400 hidden sm:inline">
+                {t('catalog.sortBy')}
+              </span>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="px-3.5 py-2.5 rounded-xl bg-[#0d0f17] border border-white/10 text-xs sm:text-sm text-white font-medium focus:outline-none focus:border-cyan-400 cursor-pointer"
+              >
+                <option value="popular">{t('catalog.sortPopular')}</option>
+                <option value="newest">{t('catalog.sortNewest')}</option>
+                <option value="price-asc">{t('catalog.sortPriceAsc')}</option>
+                <option value="price-desc">{t('catalog.sortPriceDesc')}</option>
+                <option value="rating">{t('catalog.sortRating')}</option>
+              </select>
+            </div>
           </div>
         </div>
 
-        {/* Main Layout: Desktop Sidebar + Product Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 items-start">
-          {/* Desktop Filter Sidebar */}
-          <aside className="hidden md:block col-span-1 bg-[#0d0f17]/80 border border-white/10 rounded-2xl p-5 shadow-xl backdrop-blur-xl sticky top-28">
-            <div className="flex items-center justify-between pb-4 mb-4 border-b border-white/10">
-              <div className="flex items-center gap-2 font-bold text-sm text-white">
-                <SlidersHorizontal className="w-4 h-4 text-cyan-400" />
-                <span>Filters</span>
-              </div>
-              {hasActiveFilters && (
-                <button
-                  onClick={resetFilters}
-                  className="text-xs text-rose-400 hover:text-rose-300 transition-colors"
-                >
-                  Reset
-                </button>
-              )}
+        {/* Main Content Grid */}
+        <div className="flex flex-col lg:flex-row gap-8">
+          {/* Desktop Sidebar Filters */}
+          <aside className="hidden lg:block w-72 xl:w-80 shrink-0">
+            <div className="p-6 rounded-3xl bg-[#0d0f17]/90 border border-white/10 sticky top-24">
+              <FilterPanelContent />
             </div>
-            {FilterContent}
           </aside>
 
-          {/* Product Grid / Empty State / Skeletons */}
-          <main className="col-span-1 md:col-span-3">
-            {isLoading ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {[...Array(6)].map((_, i) => (
+          {/* Product Grid */}
+          <div className="flex-1">
+            {loading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+                {Array.from({ length: 6 }).map((_, i) => (
                   <div
                     key={i}
-                    className="h-96 rounded-2xl bg-white/5 border border-white/5 animate-pulse p-4 flex flex-col justify-between"
+                    className="h-[430px] rounded-2xl bg-white/[0.02] border border-white/5 animate-pulse p-5 flex flex-col justify-between"
                   >
-                    <div className="h-6 w-24 bg-white/10 rounded-full" />
-                    <div className="h-44 w-full bg-white/10 rounded-xl my-4" />
-                    <div className="space-y-2">
-                      <div className="h-4 w-3/4 bg-white/10 rounded" />
-                      <div className="h-3 w-1/2 bg-white/10 rounded" />
+                    <div className="aspect-[4/3] rounded-xl bg-white/5" />
+                    <div className="space-y-3">
+                      <div className="h-4 w-24 bg-white/5 rounded" />
+                      <div className="h-6 w-48 bg-white/5 rounded" />
+                      <div className="h-10 w-full bg-white/5 rounded-xl" />
                     </div>
                   </div>
                 ))}
               </div>
+            ) : error ? (
+              <div className="p-12 rounded-3xl bg-[#0d0f17]/80 border border-rose-500/20 text-center max-w-md mx-auto my-8">
+                <AlertCircle className="w-12 h-12 text-rose-400 mx-auto mb-4" />
+                <p className="text-white font-semibold mb-4">{t('product.errorLoading')}</p>
+                <button
+                  onClick={fetchCatalog}
+                  className="px-6 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black text-sm font-bold"
+                >
+                  {t('product.retry')}
+                </button>
+              </div>
             ) : filteredProducts.length === 0 ? (
-              <div className="py-24 text-center bg-[#0d0f17]/50 border border-white/10 rounded-2xl p-8 flex flex-col items-center justify-center">
-                <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4 text-slate-500">
-                  <Smartphone className="w-8 h-8" />
+              <div className="p-12 sm:p-16 rounded-3xl bg-[#0d0f17]/60 border border-white/10 text-center">
+                <div className="w-16 h-16 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center mx-auto mb-4 text-cyan-400">
+                  <Search className="w-8 h-8" />
                 </div>
-                <h3 className="text-lg font-bold text-white mb-1">No Smartphones Match Criteria</h3>
-                <p className="text-xs text-slate-400 max-w-sm mb-6">
-                  Try adjusting your price range, clearing RAM filters or relaxing your brand selection.
+                <h3 className="text-xl font-['Space_Grotesk'] font-bold text-white mb-2">
+                  {t('catalog.noResults')}
+                </h3>
+                <p className="text-slate-400 text-sm max-w-md mx-auto mb-6">
+                  {t('catalog.noResultsSub')}
                 </p>
                 <button
                   onClick={resetFilters}
-                  className="px-6 py-2.5 rounded-xl bg-cyan-500 text-black font-bold text-xs hover:bg-cyan-400 transition-colors flex items-center gap-2"
+                  className="px-6 py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black text-sm font-bold transition-colors"
                 >
-                  <RotateCcw className="w-4 h-4" />
-                  Clear All Filters
+                  {t('catalog.resetFilters')}
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredProducts.map(product => (
-                  <ProductCard key={product.id} product={product} onNavigate={onNavigate} />
+              <div
+                className={`grid grid-cols-1 sm:grid-cols-2 ${
+                  gridCols === 4 ? 'xl:grid-cols-4' : 'xl:grid-cols-3'
+                } gap-6`}
+              >
+                {filteredProducts.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    onNavigate={onNavigate}
+                  />
                 ))}
               </div>
             )}
-          </main>
+          </div>
         </div>
       </div>
 
-      {/* Mobile Filter Drawer */}
-      <AnimatePresence>
-        {isMobileFilterOpen && (
-          <div className="fixed inset-0 z-50 md:hidden flex justify-end">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsMobileFilterOpen(false)}
-              className="fixed inset-0 bg-black/70 backdrop-blur-sm"
-            />
-            <motion.div
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 28 }}
-              className="relative w-full max-w-xs h-full bg-[#0d0f17] border-l border-white/10 p-6 overflow-y-auto flex flex-col justify-between"
-            >
-              <div>
-                <div className="flex items-center justify-between pb-4 mb-4 border-b border-white/10">
-                  <h3 className="font-bold text-base text-white flex items-center gap-2">
-                    <SlidersHorizontal className="w-4 h-4 text-cyan-400" />
-                    Filters
-                  </h3>
-                  <button
-                    onClick={() => setIsMobileFilterOpen(false)}
-                    className="p-1.5 text-slate-400 hover:text-white"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-                {FilterContent}
-              </div>
-
-              <div className="pt-6 border-t border-white/10 mt-6">
-                <button
-                  onClick={() => setIsMobileFilterOpen(false)}
-                  className="w-full py-3 rounded-xl bg-cyan-500 text-black font-bold text-xs uppercase"
-                >
-                  Apply Filters ({filteredProducts.length})
-                </button>
-              </div>
-            </motion.div>
+      {/* Mobile Filters Drawer */}
+      {mobileFiltersOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden flex">
+          <div
+            className="fixed inset-0 bg-black/75 backdrop-blur-sm"
+            onClick={() => setMobileFiltersOpen(false)}
+          />
+          <div className="relative z-10 w-80 max-w-[85vw] bg-[#0B0F19] h-full overflow-y-auto p-6 border-l border-white/10 ml-auto">
+            <div className="flex items-center justify-between mb-6">
+              <span className="font-['Space_Grotesk'] font-bold text-lg text-white">
+                {t('catalog.filters')}
+              </span>
+              <button
+                onClick={() => setMobileFiltersOpen(false)}
+                className="p-2 rounded-lg bg-white/5 text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <FilterPanelContent />
+            <div className="mt-8 pt-4 border-t border-white/10">
+              <button
+                onClick={() => setMobileFiltersOpen(false)}
+                className="w-full py-3 rounded-xl bg-cyan-500 text-black font-bold text-sm"
+              >
+                {t('admin.btn.confirm')} ({filteredProducts.length})
+              </button>
+            </div>
           </div>
-        )}
-      </AnimatePresence>
+        </div>
+      )}
     </div>
   );
 };

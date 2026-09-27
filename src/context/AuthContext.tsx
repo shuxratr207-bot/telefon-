@@ -7,8 +7,8 @@ interface AuthContextType {
   token: string | null;
   isLoading: boolean;
   isAdmin: boolean;
-  login: (email: string, pass: string) => Promise<void>;
-  register: (payload: { name: string; email: string; password: string; phone?: string; role?: string }) => Promise<void>;
+  login: (email: string, pass: string, adminOnly?: boolean) => Promise<User>;
+  register: (payload: { name: string; email: string; password: string; phone?: string }) => Promise<User>;
   logout: () => void;
   updateUser: (data: Partial<User>) => Promise<void>;
 }
@@ -39,18 +39,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loadUser();
   }, []);
 
-  const login = async (email: string, pass: string) => {
-    const res = await api.login(email, pass);
+  const login = async (email: string, pass: string, adminOnly = false): Promise<User> => {
+    const res = await api.login(email, pass, adminOnly);
+    if (adminOnly && res.user.role !== 'admin') {
+      throw new Error('Access denied: Administrator privileges required');
+    }
     localStorage.setItem('nova_auth_token', res.token);
     setToken(res.token);
     setUser(res.user);
+    return res.user;
   };
 
-  const register = async (payload: { name: string; email: string; password: string; phone?: string; role?: string }) => {
+  const register = async (payload: { name: string; email: string; password: string; phone?: string }): Promise<User> => {
     const res = await api.register(payload);
     localStorage.setItem('nova_auth_token', res.token);
     setToken(res.token);
     setUser(res.user);
+    return res.user;
   };
 
   const logout = () => {

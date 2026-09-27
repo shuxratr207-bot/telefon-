@@ -1,17 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Layers, X, Plus, ShoppingBag, ArrowRight, Check, Trash2, Smartphone } from 'lucide-react';
+import { Layers, X, Plus, ShoppingBag, Trash2 } from 'lucide-react';
 import { Product } from '../types/index.ts';
 import { api } from '../services/api.ts';
 import { useCompare } from '../context/CompareContext.tsx';
 import { useCart } from '../context/CartContext.tsx';
 import { useToast } from '../context/ToastContext.tsx';
+import { useLanguage } from '../context/LanguageContext.tsx';
+import {
+  getProductColors,
+  getProductStorages,
+  getProductRams,
+  getProductModels,
+  resolveProductVariant,
+} from '../utils/variants.ts';
 
 interface ComparePageProps {
   onNavigate: (path: string) => void;
 }
 
 export const ComparePage: React.FC<ComparePageProps> = ({ onNavigate }) => {
+  const { t } = useLanguage();
   const { compareProducts, removeFromCompare, clearCompare, addToCompare } = useCompare();
   const { addToCart } = useCart();
   const { showToast } = useToast();
@@ -32,35 +41,84 @@ export const ComparePage: React.FC<ComparePageProps> = ({ onNavigate }) => {
   }, []);
 
   const handleAddToCart = (product: Product) => {
-    addToCart(product);
-    showToast(`Added ${product.name} to cart!`, 'success');
+    const resolved = resolveProductVariant(product, {});
+    if (resolved.stock <= 0) {
+      onNavigate(`/phones/${product.id}`);
+      return;
+    }
+    addToCart(product, {
+      color: resolved.color,
+      storage: resolved.storage,
+      ram: resolved.ram || undefined,
+      model: resolved.model || undefined,
+      price: resolved.price,
+      stock: resolved.stock,
+      image: resolved.image,
+      quantity: 1,
+    });
+    showToast(`${product.name} (${resolved.color} • ${resolved.storage}) — ${t('product.addedToCart')}`, 'success');
   };
 
   const handleSelectProduct = (product: Product) => {
     const success = addToCompare(product);
     if (success) {
-      showToast(`Added ${product.name} to comparison`, 'success');
+      showToast(`${product.name} — ${t('product.compare')}`, 'success');
       setIsPickerOpen(false);
     } else {
-      showToast('Maximum 3 smartphones allowed. Remove one first!', 'error');
+      showToast('Max 3', 'error');
     }
   };
 
   const compareFields = [
-    { label: 'Brand', getter: (p: Product) => p.brand },
-    { label: 'Price', getter: (p: Product) => `$${p.price.toLocaleString()}` },
-    { label: 'Display', getter: (p: Product) => p.display },
-    { label: 'Refresh Rate', getter: (p: Product) => p.refreshRate || '120Hz LTPO' },
-    { label: 'Processor', getter: (p: Product) => p.processor },
-    { label: 'RAM', getter: (p: Product) => p.ram.join(', ') },
-    { label: 'Storage', getter: (p: Product) => p.storage.join(', ') },
-    { label: 'Camera Array', getter: (p: Product) => p.camera },
-    { label: 'Battery Capacity', getter: (p: Product) => p.battery },
-    { label: 'Fast Charging', getter: (p: Product) => p.charging || 'Fast charge supported' },
-    { label: 'Operating System', getter: (p: Product) => p.os || 'Android 16 / iOS 19' },
-    { label: 'Weight', getter: (p: Product) => p.weight || '215g' },
-    { label: 'Dimensions', getter: (p: Product) => p.dimensions || '162 x 75 x 8.2 mm' },
-    { label: 'Official Warranty', getter: () => '2 Years Official Coverage' },
+    { label: t('catalog.brand'), getter: (p: Product) => p.brand },
+    {
+      label: t('compare.price'),
+      getter: (p: Product) => {
+        if (Array.isArray(p.variants) && p.variants.length > 0) {
+          const prices = p.variants.map((v) => Number(v.price)).filter((n) => n > 0);
+          if (prices.length > 0) {
+            const minP = Math.min(...prices);
+            const maxP = Math.max(...prices);
+            return minP === maxP
+              ? `$${minP.toLocaleString()}`
+              : `$${minP.toLocaleString()} – $${maxP.toLocaleString()}`;
+          }
+        }
+        return `$${p.price.toLocaleString()}`;
+      },
+    },
+    {
+      label: 'Ranglar',
+      getter: (p: Product) =>
+        getProductColors(p)
+          .map((c) => c.name)
+          .join(', ') || 'Standart',
+    },
+    {
+      label: t('detail.specStorage'),
+      getter: (p: Product) => getProductStorages(p).join(' / ') || '—',
+    },
+    {
+      label: t('detail.specRam'),
+      getter: (p: Product) => getProductRams(p).join(' / ') || '—',
+    },
+    {
+      label: 'Versiyalar',
+      getter: (p: Product) => {
+        const models = getProductModels(p);
+        return models.length > 0 ? models.join(' / ') : 'Standart';
+      },
+    },
+    { label: t('detail.specDisplay'), getter: (p: Product) => p.display },
+    { label: t('detail.specRefresh'), getter: (p: Product) => p.refreshRate || '120Hz LTPO' },
+    { label: t('detail.specProcessor'), getter: (p: Product) => p.processor },
+    { label: t('detail.specMainCam'), getter: (p: Product) => p.camera },
+    { label: t('detail.specBattery'), getter: (p: Product) => p.battery },
+    { label: t('detail.specCharging'), getter: (p: Product) => p.charging || 'Fast charge' },
+    { label: t('detail.specOs'), getter: (p: Product) => p.os || 'Android 16 / iOS 19' },
+    { label: t('detail.specWeight'), getter: (p: Product) => p.weight || '215g' },
+    { label: t('detail.specDimensions'), getter: (p: Product) => p.dimensions || '162 x 75 x 8.2 mm' },
+    { label: t('trust.warrantyTitle'), getter: () => t('hero.stat3Val') },
   ];
 
   return (
@@ -71,13 +129,13 @@ export const ComparePage: React.FC<ComparePageProps> = ({ onNavigate }) => {
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-950/40 border border-indigo-500/30 text-indigo-400 text-xs font-semibold mb-2">
               <Layers className="w-3.5 h-3.5" />
-              <span>HEAD-TO-HEAD MATRIX (MAX 3)</span>
+              <span>{t('nav.compare')} (MAX 3)</span>
             </div>
             <h1 className="text-3xl sm:text-4xl font-extrabold text-white font-['Space_Grotesk']">
-              Smartphone Comparison
+              {t('compare.title')}
             </h1>
             <p className="text-sm text-slate-400 mt-1">
-              Compare hardware specs, camera arrays, battery capacities and silicon architecture side by side.
+              {t('compare.subtitle')}
             </p>
           </div>
 
@@ -88,14 +146,14 @@ export const ComparePage: React.FC<ComparePageProps> = ({ onNavigate }) => {
                 className="px-4 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black text-xs font-bold transition-all flex items-center gap-2"
               >
                 <Plus className="w-4 h-4" />
-                <span>Add Smartphone ({compareProducts.length}/3)</span>
+                <span>{t('compare.addDevice')} ({compareProducts.length}/3)</span>
               </button>
             )}
             {compareProducts.length > 0 && (
               <button
                 onClick={clearCompare}
                 className="p-2.5 rounded-xl border border-white/10 hover:border-rose-500/40 text-slate-400 hover:text-rose-400 transition-colors"
-                title="Clear all"
+                title={t('compare.clearAll')}
               >
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -109,16 +167,16 @@ export const ComparePage: React.FC<ComparePageProps> = ({ onNavigate }) => {
             <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4 text-slate-500">
               <Layers className="w-8 h-8" />
             </div>
-            <h3 className="text-xl font-bold text-white mb-1">No Smartphones Selected</h3>
+            <h3 className="text-xl font-bold text-white mb-1">{t('compare.emptyTitle')}</h3>
             <p className="text-sm text-slate-400 max-w-sm mb-6">
-              Select up to 3 flagship smartphones from our catalog to analyze specs, display refresh rates, and cameras side-by-side.
+              {t('compare.emptySub')}
             </p>
             <button
               onClick={() => setIsPickerOpen(true)}
               className="px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold text-xs uppercase shadow-lg shadow-cyan-500/20 hover:brightness-110 transition-all flex items-center gap-2"
             >
               <Plus className="w-4 h-4" />
-              <span>Select Smartphones</span>
+              <span>{t('compare.browsePhones')}</span>
             </button>
           </div>
         ) : (
@@ -129,7 +187,7 @@ export const ComparePage: React.FC<ComparePageProps> = ({ onNavigate }) => {
               <thead>
                 <tr className="border-b border-white/10 bg-black/40">
                   <th className="p-6 w-1/4 align-top text-xs font-bold text-slate-400 uppercase tracking-wider">
-                    Specification
+                    {t('compare.parameter')}
                   </th>
                   {compareProducts.map(prod => (
                     <th key={prod.id} className="p-6 w-1/4 align-top">
@@ -137,7 +195,6 @@ export const ComparePage: React.FC<ComparePageProps> = ({ onNavigate }) => {
                         <button
                           onClick={() => removeFromCompare(prod.id)}
                           className="absolute -top-2 -right-2 p-1 text-slate-500 hover:text-rose-400 rounded-full hover:bg-white/5 transition-colors"
-                          title="Remove from comparison"
                         >
                           <X className="w-4 h-4" />
                         </button>
@@ -162,12 +219,12 @@ export const ComparePage: React.FC<ComparePageProps> = ({ onNavigate }) => {
                             onClick={() => onNavigate(`/phones/${prod.id}`)}
                             className="flex-1 py-2 px-3 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-white text-xs font-semibold text-center transition-all"
                           >
-                            Details
+                            {t('product.viewDetails')}
                           </button>
                           <button
                             onClick={() => handleAddToCart(prod)}
                             className="py-2 px-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black text-xs font-bold transition-all flex items-center justify-center"
-                            title="Add to Cart"
+                            title={t('product.addToCart')}
                           >
                             <ShoppingBag className="w-3.5 h-3.5" />
                           </button>
@@ -184,7 +241,7 @@ export const ComparePage: React.FC<ComparePageProps> = ({ onNavigate }) => {
                         className="h-64 border-2 border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center p-4 hover:border-cyan-500/40 hover:bg-white/[0.02] cursor-pointer transition-all gap-2 text-slate-500 hover:text-cyan-400"
                       >
                         <Plus className="w-8 h-8" />
-                        <span className="text-xs font-bold uppercase">Add Smartphone</span>
+                        <span className="text-xs font-bold uppercase">{t('compare.addDevice')}</span>
                       </div>
                     </th>
                   ))}
@@ -235,8 +292,8 @@ export const ComparePage: React.FC<ComparePageProps> = ({ onNavigate }) => {
             >
               <div className="flex items-center justify-between pb-4 border-b border-white/10">
                 <div>
-                  <h3 className="text-lg font-bold text-white">Select Smartphone to Compare</h3>
-                  <p className="text-xs text-slate-400">Choose from available catalog flagships</p>
+                  <h3 className="text-lg font-bold text-white">{t('compare.addDevice')}</h3>
+                  <p className="text-xs text-slate-400">{t('compare.subtitle')}</p>
                 </div>
                 <button
                   onClick={() => setIsPickerOpen(false)}
@@ -274,10 +331,10 @@ export const ComparePage: React.FC<ComparePageProps> = ({ onNavigate }) => {
 
                       <div>
                         {alreadyIn ? (
-                          <span className="text-xs text-slate-500 font-semibold">Added</span>
+                          <span className="text-xs text-slate-500 font-semibold">✓</span>
                         ) : (
                           <button className="px-3 py-1.5 rounded-lg bg-cyan-500 text-black text-xs font-bold hover:bg-cyan-400">
-                            Select
+                            +
                           </button>
                         )}
                       </div>

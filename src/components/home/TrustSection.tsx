@@ -1,40 +1,43 @@
 import React from 'react';
 import { ShieldCheck, Truck, Lock, Award, Clock } from 'lucide-react';
+import { useLanguage } from '../../context/LanguageContext.tsx';
 
 export const TrustSection: React.FC = () => {
+  const { t } = useLanguage();
+
   const trustItems = [
     {
       icon: Award,
-      title: 'Official Products',
-      desc: '100% authentic devices directly from verified global manufacturers.',
+      title: t('trust.originalTitle'),
+      desc: t('trust.originalDesc'),
       color: 'text-cyan-400',
       bg: 'bg-cyan-500/10 border-cyan-500/20',
     },
     {
       icon: Truck,
-      title: 'Fast Delivery',
-      desc: 'Insured worldwide priority express shipping with real-time GPS tracking.',
+      title: t('trust.deliveryTitle'),
+      desc: t('trust.deliveryDesc'),
       color: 'text-blue-400',
       bg: 'bg-blue-500/10 border-blue-500/20',
     },
     {
       icon: Lock,
-      title: 'Secure Checkout',
-      desc: 'Bank-grade 256-bit encryption with multi-factor transaction validation.',
+      title: t('trust.installmentTitle'),
+      desc: t('trust.installmentDesc'),
       color: 'text-indigo-400',
       bg: 'bg-indigo-500/10 border-indigo-500/20',
     },
     {
       icon: ShieldCheck,
-      title: 'Official Warranty',
-      desc: 'Comprehensive 2-year warranty with direct hardware repair concierge.',
+      title: t('trust.warrantyTitle'),
+      desc: t('trust.warrantyDesc'),
       color: 'text-violet-400',
       bg: 'bg-violet-500/10 border-violet-500/20',
     },
     {
       icon: Clock,
-      title: '24/7 Support',
-      desc: 'Dedicated technical advisors ready to assist your hardware inquiries anytime.',
+      title: t('trust.supportTitle'),
+      desc: t('trust.supportDesc'),
       color: 'text-emerald-400',
       bg: 'bg-emerald-500/10 border-emerald-500/20',
     },

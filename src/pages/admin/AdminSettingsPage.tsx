@@ -1,217 +1,304 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Save, ShieldCheck, Truck, Store, Lock } from 'lucide-react';
+import { Save, Store, Truck, Shield, Bell } from 'lucide-react';
 import { StoreSettings } from '../../types/index.ts';
 import { api } from '../../services/api.ts';
 import { useToast } from '../../context/ToastContext.tsx';
-import { useAuth } from '../../context/AuthContext.tsx';
+import { useLanguage } from '../../context/LanguageContext.tsx';
 
 interface AdminSettingsPageProps {
   onNavigate: (route: string) => void;
 }
 
-export const AdminSettingsPage: React.FC<AdminSettingsPageProps> = ({ onNavigate }) => {
-  const [settings, setSettings] = useState<StoreSettings | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const { user } = useAuth();
+export const AdminSettingsPage: React.FC<AdminSettingsPageProps> = () => {
   const { showToast } = useToast();
-
-  // Local form state
-  const [storeName, setStoreName] = useState('NOVA MOBILE');
-  const [phone, setPhone] = useState('+1 (800) 890-NOVA');
-  const [email, setEmail] = useState('support@novamobile.store');
-  const [address, setAddress] = useState('400 Technology Way, Silicon District, San Francisco, CA');
-  const [standardPrice, setStandardPrice] = useState(0);
-  const [expressPrice, setExpressPrice] = useState(15);
-  const [freeThreshold, setFreeThreshold] = useState(500);
+  const { t } = useLanguage();
+  const [settings, setSettings] = useState<StoreSettings | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function loadSettings() {
-      setIsLoading(true);
-      try {
-        const res = await api.getSettings();
-        setSettings(res);
-        setStoreName(res.store.name);
-        setPhone(res.store.phone);
-        setEmail(res.store.email);
-        setAddress(res.store.address);
-        setStandardPrice(res.delivery.standardPrice);
-        setExpressPrice(res.delivery.expressPrice);
-        setFreeThreshold(res.delivery.freeDeliveryThreshold);
-      } catch (e) {
-        console.error('Failed to load settings:', e);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    loadSettings();
+    api
+      .getSettings()
+      .then((data) => {
+        setSettings(data);
+        setLoading(false);
+      })
+      .catch(() => {
+        setLoading(false);
+      });
   }, []);
+
+  if (loading || !settings) {
+    return <div className="text-slate-400 p-8">{t('admin.state.loading')}</div>;
+  }
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const updated: Partial<StoreSettings> = {
-        store: {
-          name: storeName,
-          logo: settings?.store.logo || '',
-          phone,
-          email,
-          address,
-          socialLinks: settings?.store.socialLinks || {
-            instagram: 'https://instagram.com/novamobile',
-            telegram: 'https://t.me/novamobile',
-            youtube: 'https://youtube.com/@novamobile',
-            tiktok: 'https://tiktok.com/@novamobile',
-          },
-        },
-        delivery: {
-          standardPrice: Number(standardPrice),
-          expressPrice: Number(expressPrice),
-          freeDeliveryThreshold: Number(freeThreshold),
-        },
-      };
-      await api.updateSettings(updated);
-      showToast('Store settings updated and synchronized across all nodes!', 'success');
-    } catch (err: any) {
-      showToast(err.message || 'Save failed', 'error');
+      await api.updateSettings(settings);
+      showToast(t('admin.btn.save'), 'success');
+    } catch {
+      showToast(t('admin.state.error'), 'error');
     }
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-white/10 gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white font-['Space_Grotesk']">
-            Platform Settings &amp; Logistics Configuration
-          </h1>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Configure enterprise brand contact profiles, worldwide express shipping thresholds, and authentication policies.
-          </p>
-        </div>
+    <div className="space-y-6 max-w-4xl">
+      <div className="pb-4 border-b border-white/10">
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-white font-['Space_Grotesk']">
+          {t('admin.settings.title')}
+        </h1>
+        <p className="text-xs text-slate-400 mt-0.5">{t('admin.settings.subtitle')}</p>
       </div>
 
       <form onSubmit={handleSave} className="space-y-6">
-        {/* Store Settings Section */}
-        <div className="bg-[#0d0f17] border border-white/10 rounded-3xl p-6 sm:p-8 space-y-4 shadow-xl">
-          <div className="flex items-center gap-2 pb-3 border-b border-white/10">
+        {/* Store Identity */}
+        <div className="p-6 rounded-3xl bg-[#0d0f17] border border-white/10 space-y-4 shadow-xl">
+          <div className="flex items-center gap-2.5 pb-3 border-b border-white/10">
             <Store className="w-5 h-5 text-cyan-400" />
-            <h3 className="text-base font-bold text-white">Store Identity &amp; Contact</h3>
+            <h2 className="text-base font-bold text-white">{t('admin.settings.storeSettings')}</h2>
           </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block font-semibold text-slate-300 mb-1">Store Name</label>
+              <label className="block text-xs font-semibold text-slate-400 mb-1.5">
+                {t('admin.settings.storeName')}
+              </label>
               <input
                 type="text"
-                value={storeName}
-                onChange={e => setStoreName(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-cyan-400"
+                value={settings.store.name}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    store: { ...settings.store, name: e.target.value },
+                  })
+                }
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-white text-sm"
               />
             </div>
-
             <div>
-              <label className="block font-semibold text-slate-300 mb-1">Support Email</label>
+              <label className="block text-xs font-semibold text-slate-400 mb-1.5">
+                {t('admin.settings.email')}
+              </label>
               <input
                 type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-cyan-400"
+                value={settings.store.email}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    store: { ...settings.store, email: e.target.value },
+                  })
+                }
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-white text-sm"
               />
             </div>
-
             <div>
-              <label className="block font-semibold text-slate-300 mb-1">Customer Helpline</label>
+              <label className="block text-xs font-semibold text-slate-400 mb-1.5">
+                {t('admin.settings.phone')}
+              </label>
               <input
                 type="text"
-                value={phone}
-                onChange={e => setPhone(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-cyan-400"
+                value={settings.store.phone}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    store: { ...settings.store, phone: e.target.value },
+                  })
+                }
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-white text-sm"
               />
             </div>
-
             <div>
-              <label className="block font-semibold text-slate-300 mb-1">Headquarters Address</label>
+              <label className="block text-xs font-semibold text-slate-400 mb-1.5">
+                {t('admin.settings.address')}
+              </label>
               <input
                 type="text"
-                value={address}
-                onChange={e => setAddress(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-cyan-400"
+                value={settings.store.address}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    store: { ...settings.store, address: e.target.value },
+                  })
+                }
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-white text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-400 mb-1.5">
+                {t('admin.settings.logo')}
+              </label>
+              <input
+                type="text"
+                value={settings.store.logo}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    store: { ...settings.store, logo: e.target.value },
+                  })
+                }
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-white text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-400 mb-1.5">
+                {t('admin.settings.socialLinks')} (Telegram / Instagram)
+              </label>
+              <input
+                type="text"
+                value={settings.store.socialLinks.telegram}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    store: {
+                      ...settings.store,
+                      socialLinks: { ...settings.store.socialLinks, telegram: e.target.value },
+                    },
+                  })
+                }
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-white text-sm"
               />
             </div>
           </div>
         </div>
 
-        {/* Delivery Rates Section */}
-        <div className="bg-[#0d0f17] border border-white/10 rounded-3xl p-6 sm:p-8 space-y-4 shadow-xl">
-          <div className="flex items-center gap-2 pb-3 border-b border-white/10">
-            <Truck className="w-5 h-5 text-indigo-400" />
-            <h3 className="text-base font-bold text-white">Logistics &amp; Delivery Thresholds</h3>
+        {/* Delivery & Order Settings */}
+        <div className="p-6 rounded-3xl bg-[#0d0f17] border border-white/10 space-y-4 shadow-xl">
+          <div className="flex items-center gap-2.5 pb-3 border-b border-white/10">
+            <Truck className="w-5 h-5 text-emerald-400" />
+            <h2 className="text-base font-bold text-white">
+              {t('admin.settings.deliverySettings')} & {t('admin.settings.orderSettings')}
+            </h2>
           </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="block font-semibold text-slate-300 mb-1">Standard Delivery Fee ($)</label>
+              <label className="block text-xs font-semibold text-slate-400 mb-1.5">
+                {t('admin.settings.standardDeliveryPrice')} ($)
+              </label>
               <input
                 type="number"
-                value={standardPrice}
-                onChange={e => setStandardPrice(Number(e.target.value))}
-                className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white font-mono"
+                value={settings.delivery.standardPrice}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    delivery: { ...settings.delivery, standardPrice: Number(e.target.value) },
+                  })
+                }
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-white text-sm"
               />
             </div>
-
             <div>
-              <label className="block font-semibold text-slate-300 mb-1">Express Courier Fee ($)</label>
+              <label className="block text-xs font-semibold text-slate-400 mb-1.5">
+                {t('admin.settings.expressDeliveryPrice')} ($)
+              </label>
               <input
                 type="number"
-                value={expressPrice}
-                onChange={e => setExpressPrice(Number(e.target.value))}
-                className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white font-mono"
+                value={settings.delivery.expressPrice}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    delivery: { ...settings.delivery, expressPrice: Number(e.target.value) },
+                  })
+                }
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-white text-sm"
               />
             </div>
-
             <div>
-              <label className="block font-semibold text-slate-300 mb-1">Free Delivery Threshold ($)</label>
+              <label className="block text-xs font-semibold text-slate-400 mb-1.5">
+                {t('admin.settings.freeDeliveryThreshold')} ($)
+              </label>
               <input
                 type="number"
-                value={freeThreshold}
-                onChange={e => setFreeThreshold(Number(e.target.value))}
-                className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white font-mono font-bold text-cyan-400"
+                value={settings.delivery.freeDeliveryThreshold}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    delivery: {
+                      ...settings.delivery,
+                      freeDeliveryThreshold: Number(e.target.value),
+                    },
+                  })
+                }
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-white text-sm"
               />
             </div>
           </div>
         </div>
 
-        {/* Security & Admin Profile */}
-        <div className="bg-[#0d0f17] border border-white/10 rounded-3xl p-6 sm:p-8 space-y-4 shadow-xl">
-          <div className="flex items-center gap-2 pb-3 border-b border-white/10">
-            <Lock className="w-5 h-5 text-violet-400" />
-            <h3 className="text-base font-bold text-white">Security &amp; Active Administrator</h3>
+        {/* Admin Profile */}
+        <div className="p-6 rounded-3xl bg-[#0d0f17] border border-white/10 space-y-4 shadow-xl">
+          <div className="flex items-center gap-2.5 pb-3 border-b border-white/10">
+            <Shield className="w-5 h-5 text-indigo-400" />
+            <h2 className="text-base font-bold text-white">{t('admin.settings.adminProfile')}</h2>
           </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-            <div className="p-4 rounded-2xl bg-black/40 border border-white/5 space-y-1">
-              <span className="text-slate-400 block font-semibold">Active Session Profile</span>
-              <p className="text-white font-bold text-sm">{user?.name || 'Administrator'}</p>
-              <p className="text-slate-400 font-mono">{user?.email || 'admin@novamobile.store'}</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-400 mb-1.5">
+                {t('admin.customers.name')}
+              </label>
+              <input
+                type="text"
+                defaultValue="NOVA Administrator"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-white text-sm"
+              />
             </div>
-
-            <div className="p-4 rounded-2xl bg-black/40 border border-white/5 space-y-1">
-              <span className="text-slate-400 block font-semibold">Authentication Protocol</span>
-              <p className="text-emerald-400 font-bold">256-bit JWT Session Active</p>
-              <p className="text-slate-400">Tokens refresh automatically with 7-day expiry.</p>
+            <div>
+              <label className="block text-xs font-semibold text-slate-400 mb-1.5">
+                {t('admin.settings.email')}
+              </label>
+              <input
+                type="email"
+                defaultValue="admin@novamobile.com"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-white text-sm"
+              />
             </div>
           </div>
         </div>
 
-        <div className="flex justify-end pt-2">
-          <button
-            type="submit"
-            className="px-8 py-3.5 rounded-2xl bg-cyan-500 hover:bg-cyan-400 text-black font-extrabold text-xs uppercase tracking-wider transition-all flex items-center gap-2 shadow-xl shadow-cyan-500/25"
-          >
-            <Save className="w-4 h-4 stroke-[2.5]" />
-            <span>Save Store Settings</span>
-          </button>
+        {/* Security & Notifications */}
+        <div className="p-6 rounded-3xl bg-[#0d0f17] border border-white/10 space-y-4 shadow-xl">
+          <div className="flex items-center gap-2.5 pb-3 border-b border-white/10">
+            <Shield className="w-5 h-5 text-purple-400" />
+            <h2 className="text-base font-bold text-white">
+              {t('admin.settings.security')} & {t('admin.settings.notifications')}
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <label className="flex items-center justify-between p-4 rounded-xl bg-white/[0.02] border border-white/10 cursor-pointer">
+              <div className="flex items-center gap-3">
+                <Bell className="w-4 h-4 text-cyan-400" />
+                <span className="text-xs font-bold text-white">
+                  {t('admin.notifications.newOrder')}
+                </span>
+              </div>
+              <input
+                type="checkbox"
+                checked={settings.security.twoFactorEnabled}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    security: { ...settings.security, twoFactorEnabled: e.target.checked },
+                  })
+                }
+                className="w-4 h-4 rounded accent-cyan-500"
+              />
+            </label>
+            <label className="flex items-center justify-between p-4 rounded-xl bg-white/[0.02] border border-white/10 cursor-pointer">
+              <div className="flex items-center gap-3">
+                <Bell className="w-4 h-4 text-amber-400" />
+                <span className="text-xs font-bold text-white">
+                  {t('admin.notifications.lowStock')}
+                </span>
+              </div>
+              <input type="checkbox" defaultChecked className="w-4 h-4 rounded accent-cyan-500" />
+            </label>
+          </div>
         </div>
+
+        <button
+          type="submit"
+          className="px-6 py-3 rounded-2xl bg-cyan-500 hover:bg-cyan-400 text-black font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-cyan-500/25 transition-all flex items-center gap-2"
+        >
+          <Save className="w-4 h-4" /> {t('admin.btn.save')}
+        </button>
       </form>
     </div>
   );

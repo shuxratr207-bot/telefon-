@@ -4,6 +4,19 @@ export interface ProductColor {
   image?: string;
 }
 
+export interface ProductVariant {
+  id?: string;
+  color: string;
+  colorHex?: string;
+  storage: string;
+  ram?: string;
+  model?: string;
+  price: number;
+  oldPrice?: number;
+  stock: number;
+  image?: string;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -16,6 +29,8 @@ export interface Product {
   colors: ProductColor[];
   storage: string[];
   ram: string[];
+  models?: string[];
+  variants?: ProductVariant[];
   processor: string;
   display: string;
   camera: string;
@@ -55,11 +70,13 @@ export interface CartItem {
   id: string;
   productId: string;
   name: string;
+  productName?: string;
   brand: string;
   image: string;
   color: string;
   storage: string;
   ram?: string;
+  model?: string;
   price: number;
   quantity: number;
   stock: number;
@@ -81,10 +98,13 @@ export interface WishlistItem {
 export interface OrderItem {
   productId: string;
   name: string;
+  productName?: string;
   brand: string;
   image: string;
   color: string;
   storage: string;
+  ram?: string;
+  model?: string;
   price: number;
   quantity: number;
 }

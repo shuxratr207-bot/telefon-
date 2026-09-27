@@ -1,8 +1,8 @@
 import React from 'react';
-import { motion } from 'motion/react';
-import { Award, ArrowRight, TrendingUp } from 'lucide-react';
+import { Award, ArrowRight } from 'lucide-react';
 import { Product } from '../../types/index.ts';
 import { ProductCard } from '../common/ProductCard.tsx';
+import { useLanguage } from '../../context/LanguageContext.tsx';
 
 interface BestSellersSectionProps {
   products: Product[];
@@ -10,39 +10,40 @@ interface BestSellersSectionProps {
 }
 
 export const BestSellersSection: React.FC<BestSellersSectionProps> = ({ products, onNavigate }) => {
-  const bestSellers = products.filter(p => p.bestSeller).slice(0, 4);
+  const { t } = useLanguage();
+  const bestSellers = products.filter((p) => p.bestSeller).slice(0, 4);
+
+  if (bestSellers.length === 0) return null;
 
   return (
-    <section className="py-20 relative bg-[#07080d]/60 border-y border-white/5">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-10 gap-4">
+    <section className="py-14 lg:py-24 bg-[#080C18]/70 border-y border-white/5">
+      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-8 lg:mb-12 gap-4">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-950/40 border border-amber-500/30 text-amber-300 text-xs font-semibold mb-2">
-              <TrendingUp className="w-3.5 h-3.5 text-amber-400" />
-              <span>COMMUNITY FAVORITES</span>
+            <div className="inline-flex items-center gap-2 text-amber-400 text-xs font-bold uppercase tracking-widest mb-2.5">
+              <Award className="w-3.5 h-3.5" />
+              <span>{t('home.bestSellersBadge')}</span>
             </div>
-            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white font-['Space_Grotesk']">
-              Best Sellers
+            <h2 className="text-2xl sm:text-4xl lg:text-5xl font-['Space_Grotesk'] font-extrabold text-white tracking-tight">
+              {t('home.bestSellersTitle')}
             </h2>
-            <p className="text-sm text-slate-400 mt-1 max-w-lg">
-              The highest rated and most sought-after smartphones verified by verified owners worldwide.
-            </p>
           </div>
           <button
-            onClick={() => onNavigate('/phones?sort=popular')}
-            className="inline-flex items-center gap-2 text-sm font-semibold text-amber-400 hover:text-amber-300 transition-colors"
+            onClick={() => onNavigate('/phones')}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-sm font-semibold text-cyan-400 hover:text-cyan-300 transition-all group self-start sm:self-auto"
           >
-            <span>View Rankings</span>
-            <ArrowRight className="w-4 h-4" />
+            <span>{t('home.viewAll')}</span>
+            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {bestSellers.map((product, idx) => (
-            <div key={product.id} className="relative">
-              <div className="absolute -top-3 -left-2 z-20 w-8 h-8 rounded-full bg-gradient-to-tr from-amber-500 to-yellow-400 text-black font-extrabold text-xs flex items-center justify-center shadow-lg shadow-amber-500/30 border-2 border-[#090a0f]">
-                #{idx + 1}
-              </div>
+        {/* Mobile Horizontal Slider + Desktop Multi-Column Grid */}
+        <div className="flex sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-7 overflow-x-auto sm:overflow-visible snap-x snap-mandatory pb-4 sm:pb-0 -mx-4 px-4 sm:mx-0 sm:px-0 no-scrollbar">
+          {bestSellers.map((product) => (
+            <div
+              key={product.id}
+              className="w-[80vw] max-w-[310px] sm:w-auto sm:max-w-none shrink-0 snap-start"
+            >
               <ProductCard product={product} onNavigate={onNavigate} />
             </div>
           ))}

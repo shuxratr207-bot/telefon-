@@ -52,13 +52,13 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
 export const api = {
   // Auth
-  login: (email: string, password: string) =>
+  login: (email: string, password: string, adminOnly = false) =>
     request<{ user: User; token: string }>('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, adminOnly }),
     }),
 
-  register: (payload: { name: string; email: string; password: string; phone?: string; role?: string }) =>
+  register: (payload: { name: string; email: string; password: string; phone?: string }) =>
     request<{ user: User; token: string }>('/auth/register', {
       method: 'POST',
       body: JSON.stringify(payload),

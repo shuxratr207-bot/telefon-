@@ -2,6 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Trash2, Plus, Minus, ArrowRight, ShoppingBag, ShieldCheck } from 'lucide-react';
 import { useCart } from '../../context/CartContext.tsx';
+import { useLanguage } from '../../context/LanguageContext.tsx';
 
 interface QuickCartDrawerProps {
   onNavigate: (path: string) => void;
@@ -9,6 +10,7 @@ interface QuickCartDrawerProps {
 
 export const QuickCartDrawer: React.FC<QuickCartDrawerProps> = ({ onNavigate }) => {
   const { items, isCartOpen, setIsCartOpen, updateQuantity, removeFromCart, subtotal, discount, deliveryFee, total, itemCount } = useCart();
+  const { t } = useLanguage();
 
   const handleCheckout = () => {
     setIsCartOpen(false);
@@ -47,7 +49,7 @@ export const QuickCartDrawer: React.FC<QuickCartDrawerProps> = ({ onNavigate }) 
                 <div className="flex items-center gap-2">
                   <ShoppingBag className="w-5 h-5 text-cyan-400" />
                   <h3 className="font-bold text-lg text-white font-['Space_Grotesk']">
-                    Shopping Cart ({itemCount})
+                    {t('cart.title')} ({itemCount})
                   </h3>
                 </div>
                 <button
@@ -65,18 +67,18 @@ export const QuickCartDrawer: React.FC<QuickCartDrawerProps> = ({ onNavigate }) 
                     <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4 text-slate-500">
                       <ShoppingBag className="w-8 h-8" />
                     </div>
-                    <p className="text-base font-semibold text-white mb-1">Your cart is empty</p>
+                    <p className="text-base font-semibold text-white mb-1">{t('cart.emptyTitle')}</p>
                     <p className="text-xs text-slate-400 max-w-xs mb-6">
-                      Explore our lineup of next-generation flagship smartphones and experience the future today.
+                      {t('cart.emptySub')}
                     </p>
                     <button
                       onClick={() => {
                         setIsCartOpen(false);
                         onNavigate('/phones');
                       }}
-                      className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-xs font-bold shadow-lg shadow-cyan-500/20 hover:brightness-110 transition-all"
+                      className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-xs font-bold shadow-lg shadow-cyan-500/20 hover:brightness-110 transition-all uppercase"
                     >
-                      EXPLORE SMARTPHONES
+                      {t('hero.exploreBtn')}
                     </button>
                   </div>
                 ) : (
@@ -104,9 +106,27 @@ export const QuickCartDrawer: React.FC<QuickCartDrawerProps> = ({ onNavigate }) 
                               <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
-                          <p className="text-xs text-slate-400 mt-0.5">
-                            {item.color} • {item.storage}
-                          </p>
+                          <div className="text-[11px] text-slate-400 mt-1 space-y-0.5">
+                            <div>
+                              Rang: <span className="text-slate-200 font-semibold">{item.color}</span> • Xotira:{' '}
+                              <span className="text-slate-200 font-semibold">{item.storage}</span>
+                            </div>
+                            {(item.ram || item.model) && (
+                              <div>
+                                {item.ram && (
+                                  <span>
+                                    RAM: <span className="text-slate-200 font-semibold">{item.ram}</span>
+                                  </span>
+                                )}
+                                {item.ram && item.model && ' • '}
+                                {item.model && (
+                                  <span>
+                                    Versiya: <span className="text-cyan-400 font-semibold">{item.model}</span>
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
 
                         {/* Price & Quantity Controls */}
@@ -143,42 +163,42 @@ export const QuickCartDrawer: React.FC<QuickCartDrawerProps> = ({ onNavigate }) 
                 <div className="p-5 border-t border-white/10 bg-black/40 space-y-3">
                   <div className="space-y-1.5 text-xs">
                     <div className="flex justify-between text-slate-400">
-                      <span>Subtotal</span>
+                      <span>{t('cart.subtotal')}</span>
                       <span className="text-white">${subtotal.toLocaleString()}</span>
                     </div>
                     {discount > 0 && (
                       <div className="flex justify-between text-emerald-400">
-                        <span>Promotional Discount (5%)</span>
+                        <span>{t('cart.discount')} (5%)</span>
                         <span>-${discount.toLocaleString()}</span>
                       </div>
                     )}
                     <div className="flex justify-between text-slate-400">
-                      <span>Shipping</span>
-                      <span>{deliveryFee === 0 ? <span className="text-cyan-400 font-semibold">FREE</span> : `$${deliveryFee}`}</span>
+                      <span>{t('cart.shipping')}</span>
+                      <span>{deliveryFee === 0 ? <span className="text-cyan-400 font-semibold">{t('cart.free')}</span> : `$${deliveryFee}`}</span>
                     </div>
                     <div className="pt-2 border-t border-white/10 flex justify-between text-base font-bold text-white">
-                      <span>Estimated Total</span>
+                      <span>{t('cart.total')}</span>
                       <span className="text-cyan-400">${total.toLocaleString()}</span>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-1.5 text-[11px] text-slate-400 bg-cyan-950/20 border border-cyan-500/20 p-2 rounded-lg">
                     <ShieldCheck className="w-4 h-4 text-cyan-400 shrink-0" />
-                    <span>Free express delivery on orders over $500 with official warranty.</span>
+                    <span>{t('detail.deliveryInfo')}</span>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 pt-1">
                     <button
                       onClick={handleViewCart}
-                      className="py-3 px-4 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-white text-xs font-bold transition-all text-center"
+                      className="py-3 px-4 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-white text-xs font-bold transition-all text-center uppercase"
                     >
-                      VIEW CART
+                      {t('cart.viewCart')}
                     </button>
                     <button
                       onClick={handleCheckout}
-                      className="py-3 px-4 rounded-xl bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 hover:brightness-110 text-white text-xs font-bold shadow-lg shadow-cyan-500/25 transition-all flex items-center justify-center gap-2"
+                      className="py-3 px-4 rounded-xl bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 hover:brightness-110 text-white text-xs font-bold shadow-lg shadow-cyan-500/25 transition-all flex items-center justify-center gap-2 uppercase"
                     >
-                      CHECKOUT <ArrowRight className="w-4 h-4" />
+                      {t('cart.checkoutBtn')} <ArrowRight className="w-4 h-4" />
                     </button>
                   </div>
                 </div>

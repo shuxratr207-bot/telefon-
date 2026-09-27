@@ -1,192 +1,157 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
-import { BarChart3, TrendingUp, DollarSign, ShoppingBag, Users, Smartphone, ArrowUpRight } from 'lucide-react';
+import { TrendingUp, DollarSign, ShoppingBag, Users, Award } from 'lucide-react';
+import { Product, Order, User } from '../../types/index.ts';
 import { api } from '../../services/api.ts';
+import { useLanguage } from '../../context/LanguageContext.tsx';
 
 interface AdminAnalyticsPageProps {
   onNavigate: (route: string) => void;
 }
 
-export const AdminAnalyticsPage: React.FC<AdminAnalyticsPageProps> = ({ onNavigate }) => {
-  const [analytics, setAnalytics] = useState<any>(null);
-  const [timeframe, setTimeframe] = useState('30d');
-  const [isLoading, setIsLoading] = useState(true);
+export const AdminAnalyticsPage: React.FC<AdminAnalyticsPageProps> = () => {
+  const { t } = useLanguage();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function loadAnalytics() {
-      setIsLoading(true);
-      try {
-        const res = await api.getAnalytics(timeframe);
-        setAnalytics(res);
-      } catch (e) {
-        console.error('Failed to load analytics:', e);
-      } finally {
-        setIsLoading(false);
-      }
+  const loadData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [pRes, oRes, uRes] = await Promise.all([
+        api.getProducts(),
+        api.getOrders(),
+        api.getUsers(),
+      ]);
+      setProducts(pRes.products);
+      setOrders(oRes.orders);
+      setUsers(uRes.users);
+    } catch {
+      setError(t('admin.state.loadFailed'));
+    } finally {
+      setLoading(false);
     }
-    loadAnalytics();
-  }, [timeframe]);
-
-  const metrics = analytics?.metrics || {
-    totalRevenue: 184920,
-    totalOrders: 142,
-    totalProducts: 20,
-    totalCustomers: 48,
-    productsSold: 196,
-    averageOrderValue: 1302,
   };
 
-  const topProducts = analytics?.topProducts || [];
-  const brandSales = analytics?.brandSales || [];
-  const categorySales = analytics?.categorySales || [];
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const validOrders = orders.filter((o) => o.status !== 'Cancelled');
+  const totalRev = validOrders.reduce((acc, o) => acc + o.total, 0);
+  const avgOrder = validOrders.length ? Math.round(totalRev / validOrders.length) : 0;
+  const totalSoldUnits = validOrders.reduce(
+    (acc, o) => acc + o.items.reduce((sum, item) => sum + item.quantity, 0),
+    0
+  );
+
+  // Brand breakdown
+  const brandStats = ['Apple', 'Samsung', 'Xiaomi', 'Google', 'OnePlus', 'Honor'].map((brand) => {
+    const count = products.filter((p) => p.brand.toLowerCase() === brand.toLowerCase()).length;
+    return { brand, count, pct: products.length ? Math.round((count / products.length) * 100) : 0 };
+  });
+
+  // Category breakdown
+  const categories = Array.from(new Set(products.map((p) => p.category)));
+  const categoryStats = categories.map((cat) => {
+    const count = products.filter((p) => p.category === cat).length;
+    return { cat, count, pct: products.length ? Math.round((count / products.length) * 100) : 0 };
+  });
+
+  if (loading) {
+    return (
+      <div className="p-12 text-center text-slate-400 text-sm bg-[#0d0f17] rounded-2xl border border-white/10">
+        {t('admin.state.loading')}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-white/10 gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white font-['Space_Grotesk']">
-            Store Performance &amp; Hardware Analytics
-          </h1>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Grounded in actual database transaction figures, inventory turnover, and sales margins.
-          </p>
-        </div>
-
-        {/* Date Filter */}
-        <div className="flex items-center gap-1.5 p-1 bg-[#0d0f17] border border-white/10 rounded-2xl">
-          {[
-            { label: 'Today', value: 'today' },
-            { label: '7 Days', value: '7d' },
-            { label: '30 Days', value: '30d' },
-            { label: '3 Months', value: '3m' },
-            { label: '12 Months', value: '12m' },
-          ].map(tf => (
-            <button
-              key={tf.value}
-              onClick={() => setTimeframe(tf.value)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                timeframe === tf.value
-                  ? 'bg-cyan-500 text-black font-bold shadow'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              {tf.label}
-            </button>
-          ))}
-        </div>
+      <div className="pb-4 border-b border-white/10">
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-white font-['Space_Grotesk']">
+          {t('admin.analytics.title')}
+        </h1>
+        <p className="text-xs text-slate-400 mt-0.5">{t('admin.analytics.subtitle')}</p>
       </div>
 
-      {/* Primary KPI Strip */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        <div className="p-5 rounded-2xl bg-[#0d0f17] border border-white/10 space-y-1">
-          <span className="text-xs text-slate-400 font-semibold block uppercase">Gross Revenue</span>
-          <span className="text-2xl font-extrabold text-white font-['Space_Grotesk']">
-            ${metrics.totalRevenue?.toLocaleString()}
-          </span>
-          <span className="text-[10px] text-emerald-400 font-bold block">+18.4% growth</span>
+      {error && (
+        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-between text-rose-400 text-sm">
+          <span>{error}</span>
+          <button
+            onClick={loadData}
+            className="px-3 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 font-bold text-xs"
+          >
+            {t('admin.state.tryAgain')}
+          </button>
         </div>
+      )}
 
-        <div className="p-5 rounded-2xl bg-[#0d0f17] border border-white/10 space-y-1">
-          <span className="text-xs text-slate-400 font-semibold block uppercase">Total Orders</span>
-          <span className="text-2xl font-extrabold text-white font-['Space_Grotesk']">
-            {metrics.totalOrders}
-          </span>
-          <span className="text-[10px] text-cyan-400 font-bold block">100% verified</span>
-        </div>
-
-        <div className="p-5 rounded-2xl bg-[#0d0f17] border border-white/10 space-y-1">
-          <span className="text-xs text-slate-400 font-semibold block uppercase">Units Sold</span>
-          <span className="text-2xl font-extrabold text-white font-['Space_Grotesk']">
-            {metrics.productsSold || '196'}
-          </span>
-          <span className="text-[10px] text-indigo-400 font-bold block">Flagship grade</span>
-        </div>
-
-        <div className="p-5 rounded-2xl bg-[#0d0f17] border border-white/10 space-y-1">
-          <span className="text-xs text-slate-400 font-semibold block uppercase">Avg Order Value</span>
-          <span className="text-2xl font-extrabold text-cyan-400 font-['Space_Grotesk']">
-            ${metrics.averageOrderValue?.toLocaleString()}
-          </span>
-          <span className="text-[10px] text-slate-500 block">High basket size</span>
-        </div>
-
-        <div className="p-5 rounded-2xl bg-[#0d0f17] border border-white/10 space-y-1">
-          <span className="text-xs text-slate-400 font-semibold block uppercase">Customer Base</span>
-          <span className="text-2xl font-extrabold text-white font-['Space_Grotesk']">
-            {metrics.totalCustomers}
-          </span>
-          <span className="text-[10px] text-violet-400 font-bold block">94% repeat intent</span>
-        </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        {[
+          {
+            label: t('admin.analytics.revenue'),
+            value: `$${totalRev.toLocaleString()}`,
+            icon: DollarSign,
+            color: 'text-emerald-400',
+          },
+          {
+            label: t('admin.analytics.avgOrderValue'),
+            value: `$${avgOrder.toLocaleString()}`,
+            icon: ShoppingBag,
+            color: 'text-cyan-400',
+          },
+          {
+            label: t('admin.analytics.orders'),
+            value: orders.length,
+            icon: TrendingUp,
+            color: 'text-purple-400',
+          },
+          {
+            label: t('admin.analytics.productsSold'),
+            value: totalSoldUnits,
+            icon: Award,
+            color: 'text-amber-400',
+          },
+          {
+            label: t('admin.analytics.customers'),
+            value: users.filter((u) => u.role === 'customer').length,
+            icon: Users,
+            color: 'text-blue-400',
+          },
+        ].map((kpi, i) => {
+          const Icon = kpi.icon;
+          return (
+            <div key={i} className="p-5 rounded-3xl bg-[#0d0f17] border border-white/10 shadow-xl">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-semibold text-slate-400">{kpi.label}</span>
+                <Icon className={`w-5 h-5 ${kpi.color}`} />
+              </div>
+              <div className="text-2xl font-extrabold text-white">{kpi.value}</div>
+            </div>
+          );
+        })}
       </div>
 
-      {/* Top Selling Models Table */}
-      <div className="p-6 rounded-3xl bg-[#0d0f17] border border-white/10 shadow-2xl space-y-4">
-        <h3 className="text-base font-bold text-white pb-3 border-b border-white/10">
-          Top Performing Flagships by Volume &amp; Revenue
-        </h3>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-black/40 text-slate-400 uppercase tracking-wider font-semibold border-b border-white/10">
-              <tr>
-                <th className="p-3 pl-4">Smartphone</th>
-                <th className="p-3">Brand</th>
-                <th className="p-3">Units Sold</th>
-                <th className="p-3">Gross Revenue</th>
-                <th className="p-3 pr-4 text-right">Available Stock</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5">
-              {topProducts.map((p: any) => (
-                <tr key={p.id} className="hover:bg-white/[0.02]">
-                  <td className="p-3 pl-4">
-                    <div className="flex items-center gap-3">
-                      <img src={p.image} alt={p.name} className="w-10 h-10 object-contain" />
-                      <span className="font-bold text-white text-sm">{p.name}</span>
-                    </div>
-                  </td>
-                  <td className="p-3 font-semibold text-slate-300">{p.brand}</td>
-                  <td className="p-3 font-mono font-bold text-slate-200">{p.unitsSold} units</td>
-                  <td className="p-3 font-mono font-extrabold text-cyan-400">${p.revenue.toLocaleString()}</td>
-                  <td className="p-3 pr-4 text-right">
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-white/5 text-slate-300">
-                      {p.stock} in stock
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Category Breakdown & Customer Growth Charts */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="p-6 rounded-3xl bg-[#0d0f17] border border-white/10 shadow-2xl space-y-4">
-          <h3 className="text-base font-bold text-white pb-3 border-b border-white/10">
-            Hardware Tier Distribution
-          </h3>
-          <div className="space-y-3">
-            {(categorySales.length > 0
-              ? categorySales
-              : [
-                  { name: 'Flagship', percentage: 48 },
-                  { name: 'Foldable', percentage: 22 },
-                  { name: 'Gaming', percentage: 14 },
-                  { name: 'Mid Range', percentage: 11 },
-                  { name: 'Budget', percentage: 5 },
-                ]
-            ).map((cat: any) => (
-              <div key={cat.name} className="space-y-1">
-                <div className="flex justify-between text-xs font-semibold">
-                  <span className="text-slate-300">{cat.name}</span>
-                  <span className="text-cyan-400 font-mono">{cat.percentage}%</span>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Top Brands */}
+        <div className="p-6 rounded-3xl bg-[#0d0f17] border border-white/10 shadow-xl">
+          <h3 className="text-base font-bold text-white mb-5">{t('admin.analytics.topBrands')}</h3>
+          <div className="space-y-4">
+            {brandStats.map((b) => (
+              <div key={b.brand} className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-white">{b.brand}</span>
+                  <span className="text-slate-400">
+                    {b.count} ({b.pct}%)
+                  </span>
                 </div>
-                <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+                <div className="w-full h-2.5 rounded-full bg-white/5 overflow-hidden">
                   <div
                     className="h-full bg-gradient-to-r from-cyan-500 to-indigo-500 rounded-full"
-                    style={{ width: `${cat.percentage}%` }}
+                    style={{ width: `${Math.max(b.pct, 6)}%` }}
                   />
                 </div>
               </div>
@@ -194,36 +159,68 @@ export const AdminAnalyticsPage: React.FC<AdminAnalyticsPageProps> = ({ onNaviga
           </div>
         </div>
 
-        <div className="p-6 rounded-3xl bg-[#0d0f17] border border-white/10 shadow-2xl space-y-4">
-          <h3 className="text-base font-bold text-white pb-3 border-b border-white/10">
-            Brand Revenue Contribution
-          </h3>
-          <div className="space-y-3">
-            {(brandSales.length > 0
-              ? brandSales
-              : [
-                  { name: 'Apple', percentage: 42 },
-                  { name: 'Samsung', percentage: 31 },
-                  { name: 'Google', percentage: 12 },
-                  { name: 'Xiaomi', percentage: 8 },
-                  { name: 'Nothing', percentage: 7 },
-                ]
-            ).map((b: any) => (
-              <div key={b.name} className="space-y-1">
-                <div className="flex justify-between text-xs font-semibold">
-                  <span className="text-slate-300">{b.name}</span>
-                  <span className="text-indigo-400 font-mono">{b.percentage}%</span>
+        {/* Top Products */}
+        <div className="p-6 rounded-3xl bg-[#0d0f17] border border-white/10 shadow-xl">
+          <h3 className="text-base font-bold text-white mb-5">{t('admin.analytics.topProducts')}</h3>
+          {products.length === 0 ? (
+            <div className="text-sm text-slate-500 py-8 text-center">{t('admin.analytics.noData')}</div>
+          ) : (
+            <div className="space-y-3">
+              {products.slice(0, 5).map((p, i) => (
+                <div
+                  key={p.id}
+                  className="flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/5"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="w-6 h-6 rounded-lg bg-cyan-500/10 text-cyan-400 font-bold text-xs flex items-center justify-center">
+                      #{i + 1}
+                    </span>
+                    <img
+                      src={p.images?.[0]}
+                      alt={p.name}
+                      className="w-9 h-9 rounded-lg object-contain bg-white/5 p-1"
+                    />
+                    <div>
+                      <div className="text-xs font-bold text-white">{p.name}</div>
+                      <div className="text-[11px] text-slate-500">{p.brand}</div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xs font-extrabold text-emerald-400">
+                      ${p.price.toLocaleString()}
+                    </div>
+                    <div className="text-[10px] text-slate-500">★ {p.rating}</div>
+                  </div>
                 </div>
-                <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Category Sales Breakdown */}
+      <div className="p-6 rounded-3xl bg-[#0d0f17] border border-white/10 shadow-xl">
+        <h3 className="text-base font-bold text-white mb-5">{t('admin.analytics.categorySales')}</h3>
+        {categoryStats.length === 0 ? (
+          <div className="text-sm text-slate-500 py-6 text-center">{t('admin.analytics.noData')}</div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            {categoryStats.map((c) => (
+              <div key={c.cat} className="p-4 rounded-xl bg-white/[0.02] border border-white/5">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-bold text-white">{c.cat}</span>
+                  <span className="text-xs font-bold text-cyan-400">{c.pct}%</span>
+                </div>
+                <div className="w-full h-2 rounded-full bg-white/5 overflow-hidden">
                   <div
-                    className="h-full bg-gradient-to-r from-blue-500 to-violet-500 rounded-full"
-                    style={{ width: `${b.percentage}%` }}
+                    className="h-full bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-full"
+                    style={{ width: `${Math.max(c.pct, 8)}%` }}
                   />
                 </div>
               </div>
             ))}
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

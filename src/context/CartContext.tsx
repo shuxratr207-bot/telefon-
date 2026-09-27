@@ -1,10 +1,22 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { CartItem, Product } from '../types/index.ts';
 import { api } from '../services/api.ts';
+import { resolveProductVariant } from '../utils/variants.ts';
+
+export interface AddToCartOptions {
+  color?: string;
+  storage?: string;
+  ram?: string;
+  model?: string;
+  price?: number;
+  stock?: number;
+  image?: string;
+  quantity?: number;
+}
 
 interface CartContextType {
   items: CartItem[];
-  addToCart: (product: Product, options?: { color?: string; storage?: string; ram?: string; quantity?: number }) => Promise<void>;
+  addToCart: (product: Product, options?: AddToCartOptions) => Promise<void>;
   updateQuantity: (id: string, delta: number) => Promise<void>;
   setExactQuantity: (id: string, quantity: number) => Promise<void>;
   removeFromCart: (id: string) => Promise<void>;
@@ -64,16 +76,36 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const addToCart = async (
     product: Product,
-    options?: { color?: string; storage?: string; ram?: string; quantity?: number }
+    options?: AddToCartOptions
   ) => {
-    const selectedColor = options?.color || (product.colors && product.colors[0]?.name) || 'Standard';
-    const selectedStorage = options?.storage || (product.storage && product.storage[0]) || '256GB';
-    const selectedRam = options?.ram || (product.ram && product.ram[0]);
+    const resolved = resolveProductVariant(product, {
+      color: options?.color,
+      storage: options?.storage,
+      ram: options?.ram,
+      model: options?.model,
+    });
+
+    const selectedColor = options?.color || resolved.color || 'Qora';
+    const selectedStorage = options?.storage || resolved.storage || '256 GB';
+    const selectedRam = options?.ram !== undefined ? options.ram : resolved.ram;
+    const selectedModel = options?.model !== undefined ? options.model : resolved.model;
+    const variantPrice = options?.price !== undefined ? options.price : resolved.price;
+    const variantStock = options?.stock !== undefined ? options.stock : resolved.stock;
+    const displayImage = options?.image || resolved.image || product.images[0];
     const quantity = options?.quantity || 1;
 
-    // Check if matching item exists
+    if (variantStock <= 0) {
+      return;
+    }
+
+    // Check if matching item with exact same variant configuration exists
     const existingIndex = items.findIndex(
-      it => it.productId === product.id && it.color === selectedColor && it.storage === selectedStorage
+      it =>
+        it.productId === product.id &&
+        (it.color || '') === (selectedColor || '') &&
+        (it.storage || '') === (selectedStorage || '') &&
+        (it.ram || '') === (selectedRam || '') &&
+        (it.model || '') === (selectedModel || '')
     );
 
     let updatedList: CartItem[];
@@ -81,28 +113,30 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (existingIndex > -1) {
       updatedList = [...items];
-      const newQty = Math.min(product.stock, updatedList[existingIndex].quantity + quantity);
+      const newQty = Math.min(variantStock, updatedList[existingIndex].quantity + quantity);
       updatedList[existingIndex] = {
         ...updatedList[existingIndex],
+        price: variantPrice,
+        stock: variantStock,
+        image: displayImage,
         quantity: newQty,
       };
       targetItem = updatedList[existingIndex];
     } else {
-      const colorMatch = product.colors?.find(c => c.name === selectedColor);
-      const displayImage = colorMatch?.image || product.images[0];
-
       targetItem = {
         id: `cart-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         productId: product.id,
         name: product.name,
+        productName: product.name,
         brand: product.brand,
         image: displayImage,
         color: selectedColor,
         storage: selectedStorage,
-        ram: selectedRam,
-        price: product.price,
-        quantity,
-        stock: product.stock,
+        ram: selectedRam || undefined,
+        model: selectedModel || undefined,
+        price: variantPrice,
+        quantity: Math.min(variantStock, quantity),
+        stock: variantStock,
       };
       updatedList = [targetItem, ...items];
     }
