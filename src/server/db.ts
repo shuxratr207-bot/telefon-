@@ -1,5 +1,8 @@
 import { MongoClient, Db } from 'mongodb';
 import bcrypt from 'bcryptjs';
+import dotenv from 'dotenv';
+
+dotenv.config();
 import {
   Product,
   User,
@@ -27,9 +30,13 @@ import {
   initialSettings,
 } from './seedData.ts';
 
-const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || 'admin@novamobile.com').toLowerCase().trim();
-const ADMIN_PASSWORD_ENV = process.env.ADMIN_PASSWORD || '';
-const ADMIN_PASSWORD_HASH_ENV = process.env.ADMIN_PASSWORD_HASH || '';
+export function getAdminEmail(): string {
+  return (process.env.ADMIN_EMAIL || 'admin@novamobile.com').toLowerCase().trim();
+}
+
+const ADMIN_EMAIL = getAdminEmail();
+const ADMIN_PASSWORD_ENV = (process.env.ADMIN_PASSWORD || '').trim();
+const ADMIN_PASSWORD_HASH_ENV = (process.env.ADMIN_PASSWORD_HASH || '').trim();
 const ADMIN_PASSWORD_HASH = ADMIN_PASSWORD_HASH_ENV || bcrypt.hashSync(ADMIN_PASSWORD_ENV || 'admin123', 6);
 const FALLBACK_ADMIN_PASSWORDS = ['111222', 'admin123', 'nova-admin-2026'];
 const CUSTOMER_DEMO_HASH = bcrypt.hashSync('customer123', 6);
@@ -107,30 +114,67 @@ const memoryDb = new MemoryDatabase();
 let mongoClient: MongoClient | null = null;
 let mongoDbInstance: Db | null = null;
 let isMongoConnected = false;
+let mongoConnectPromise: Promise<boolean> | null = null;
 
 export async function connectMongo(): Promise<boolean> {
-  const mongoUri = process.env.MONGODB_URI;
+  if (isMongoConnected && mongoDbInstance) {
+    return true;
+  }
+  if (mongoConnectPromise) {
+    return mongoConnectPromise;
+  }
+
+  const mongoUri = (process.env.MONGODB_URI || '').trim();
   if (!mongoUri) {
     console.log('[NOVA Database] MONGODB_URI not provided. Running in persistent memory/sync mode.');
     return false;
   }
 
-  try {
-    mongoClient = new MongoClient(mongoUri, {
-      serverSelectionTimeoutMS: 2500,
-    });
-    await mongoClient.connect();
-    mongoDbInstance = mongoClient.db();
-    isMongoConnected = true;
-    console.log('[NOVA Database] Successfully connected to MongoDB:', mongoDbInstance.databaseName);
-
-    // Bootstrap collections if empty
-    await bootstrapMongo(mongoDbInstance);
-    return true;
-  } catch (err) {
-    console.warn('[NOVA Database] Could not connect to MongoDB server, falling back to local memory database:', (err as Error).message);
-    isMongoConnected = false;
+  // Avoid hanging on placeholder localhost MongoDB URI when deployed in serverless/cloud
+  if (
+    (process.env.VERCEL || process.env.K_SERVICE) &&
+    (mongoUri.includes('localhost') || mongoUri.includes('127.0.0.1'))
+  ) {
+    console.warn('[NOVA Database] Skipping localhost MONGODB_URI in cloud environment; using in-memory store.');
     return false;
+  }
+
+  mongoConnectPromise = (async () => {
+    try {
+      mongoClient = new MongoClient(mongoUri, {
+        serverSelectionTimeoutMS: 2500,
+      });
+      await mongoClient.connect();
+      mongoDbInstance = mongoClient.db();
+      isMongoConnected = true;
+      console.log('[NOVA Database] Successfully connected to MongoDB:', mongoDbInstance.databaseName);
+
+      // Bootstrap collections if empty
+      await bootstrapMongo(mongoDbInstance);
+      return true;
+    } catch (err) {
+      console.warn(
+        '[NOVA Database] Could not connect to MongoDB server, falling back to local memory database:',
+        (err as Error).message
+      );
+      isMongoConnected = false;
+      mongoConnectPromise = null;
+      return false;
+    }
+  })();
+
+  return mongoConnectPromise;
+}
+
+async function ensureDbReady(): Promise<void> {
+  if (!isMongoConnected && mongoConnectPromise) {
+    try {
+      await mongoConnectPromise;
+    } catch {}
+  } else if (!isMongoConnected && process.env.MONGODB_URI) {
+    try {
+      await connectMongo();
+    } catch {}
   }
 }
 
@@ -481,7 +525,10 @@ export const dbService = {
   },
 
   // USERS
+  getAdminEmail,
+
   async getUsers(): Promise<User[]> {
+    await ensureDbReady();
     if (isMongoConnected && mongoDbInstance) {
       try {
         const docs = await mongoDbInstance.collection('users').find({}).toArray();
@@ -495,6 +542,8 @@ export const dbService = {
   },
 
   async getUserByEmail(email: string): Promise<(User & { passwordHash?: string }) | null> {
+    if (!email) return null;
+    await ensureDbReady();
     const clean = email.toLowerCase().trim();
     if (isMongoConnected && mongoDbInstance) {
       try {
@@ -509,6 +558,8 @@ export const dbService = {
   },
 
   async getUserById(id: string): Promise<User | null> {
+    if (!id) return null;
+    await ensureDbReady();
     if (isMongoConnected && mongoDbInstance) {
       try {
         const doc = await mongoDbInstance.collection('users').findOne({ id });
@@ -525,10 +576,22 @@ export const dbService = {
   },
 
   async createUser(user: User & { passwordHash?: string }): Promise<User> {
-    memoryDb.users.push(user);
+    await ensureDbReady();
+    const existingIdx = memoryDb.users.findIndex(
+      u => u.id === user.id || u.email.toLowerCase() === user.email.toLowerCase()
+    );
+    if (existingIdx !== -1) {
+      memoryDb.users[existingIdx] = { ...memoryDb.users[existingIdx], ...user };
+    } else {
+      memoryDb.users.push(user);
+    }
     if (isMongoConnected && mongoDbInstance) {
       try {
-        await mongoDbInstance.collection('users').insertOne({ ...user });
+        await mongoDbInstance.collection('users').updateOne(
+          { email: user.email.toLowerCase() },
+          { $set: { ...user } },
+          { upsert: true }
+        );
       } catch (e) {}
     }
     const { passwordHash, ...safe } = user;
@@ -536,14 +599,22 @@ export const dbService = {
   },
 
   async updateUser(id: string, updates: Partial<User>): Promise<User | null> {
+    await ensureDbReady();
     const idx = memoryDb.users.findIndex(u => u.id === id);
     if (idx !== -1) {
       memoryDb.users[idx] = { ...memoryDb.users[idx], ...updates };
-      if (isMongoConnected && mongoDbInstance) {
-        try {
-          await mongoDbInstance.collection('users').updateOne({ id }, { $set: updates });
-        } catch (e) {}
-      }
+    }
+    if (isMongoConnected && mongoDbInstance) {
+      try {
+        await mongoDbInstance.collection('users').updateOne({ id }, { $set: updates });
+        const updatedDoc = await mongoDbInstance.collection('users').findOne({ id });
+        if (updatedDoc) {
+          const { passwordHash, _id, ...safe } = updatedDoc as any;
+          return { id: safe.id || _id?.toString(), ...safe };
+        }
+      } catch (e) {}
+    }
+    if (idx !== -1) {
       const { passwordHash, ...safe } = memoryDb.users[idx];
       return safe;
     }
@@ -552,26 +623,57 @@ export const dbService = {
 
   async verifyAdminSecret(password: string): Promise<boolean> {
     if (!password) return false;
-    if (ADMIN_PASSWORD_ENV) {
-      return password === ADMIN_PASSWORD_ENV;
+    const cleanPass = String(password);
+    const liveAdminPass = (process.env.ADMIN_PASSWORD || '').trim();
+    const liveAdminHash = (process.env.ADMIN_PASSWORD_HASH || '').trim();
+
+    if (liveAdminPass && (cleanPass === liveAdminPass || cleanPass.trim() === liveAdminPass)) {
+      return true;
     }
-    if (ADMIN_PASSWORD_HASH_ENV) {
-      return bcrypt.compare(password, ADMIN_PASSWORD_HASH_ENV);
+    if (liveAdminHash) {
+      try {
+        if (await bcrypt.compare(cleanPass, liveAdminHash)) return true;
+      } catch {}
+    }
+    if (FALLBACK_ADMIN_PASSWORDS.includes(cleanPass) || FALLBACK_ADMIN_PASSWORDS.includes(cleanPass.trim())) {
+      return true;
     }
     const adminUser = memoryDb.users.find(u => u.role === 'admin');
-    if (adminUser?.passwordHash && (await bcrypt.compare(password, adminUser.passwordHash))) {
-      return true;
-    }
-    if (FALLBACK_ADMIN_PASSWORDS.includes(password)) {
-      return true;
+    if (adminUser?.passwordHash) {
+      try {
+        if (await bcrypt.compare(cleanPass, adminUser.passwordHash)) return true;
+      } catch {}
     }
     return false;
   },
 
   async getAdminUser(): Promise<User> {
+    await ensureDbReady();
+    const currentAdminEmail = getAdminEmail();
+    if (isMongoConnected && mongoDbInstance) {
+      try {
+        const doc = await mongoDbInstance
+          .collection('users')
+          .findOne({ $or: [{ email: currentAdminEmail }, { role: 'admin' }] });
+        if (doc) {
+          const { passwordHash, _id, ...safe } = doc as any;
+          return {
+            ...safe,
+            id: safe.id || 'user-admin-1',
+            email: safe.email || currentAdminEmail,
+            role: 'admin',
+          };
+        }
+      } catch {}
+    }
     const found = memoryDb.users.find(u => u.role === 'admin') || memoryDb.users[0];
     const { passwordHash, ...safe } = found;
-    return { ...safe, role: 'admin' };
+    return {
+      ...safe,
+      id: safe.id || 'user-admin-1',
+      email: currentAdminEmail,
+      role: 'admin',
+    };
   },
 
   // REVIEWS

@@ -1,11 +1,71 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
+import dotenv from 'dotenv';
 import { dbService } from './db.ts';
 import { Product, User, Order, Review, Brand, Category, Deal, Banner, CartItem, WishlistItem } from '../types/index.ts';
 
+dotenv.config();
+
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'nova-mobile-secret-jwt-key-production-grade';
+
+function getJwtSecret(): string {
+  return (process.env.JWT_SECRET || 'nova-mobile-secret-jwt-key-production-grade').trim();
+}
+
+interface JwtTokenPayload {
+  id: string;
+  email: string;
+  name?: string;
+  phone?: string;
+  role: 'customer' | 'admin';
+}
+
+function signUserToken(user: User): string {
+  const payload: JwtTokenPayload = {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    phone: user.phone || '',
+    role: user.role,
+  };
+  return jwt.sign(payload, getJwtSecret(), { expiresIn: '7d' });
+}
+
+async function resolveUserFromToken(decoded: JwtTokenPayload): Promise<User | null> {
+  if (decoded.role === 'admin') {
+    const byId = await dbService.getUserById(decoded.id);
+    if (byId && byId.role === 'admin') return byId;
+    return await dbService.getAdminUser();
+  }
+
+  let user = await dbService.getUserById(decoded.id);
+  if (!user && decoded.email) {
+    const byEmail = await dbService.getUserByEmail(decoded.email);
+    if (byEmail) {
+      const { passwordHash, ...safe } = byEmail;
+      user = safe;
+    }
+  }
+
+  // If valid signed JWT exists across serverless instances when running in memory mode, re-hydrate user
+  if (!user && decoded.id && decoded.email) {
+    const hydrated: User = {
+      id: decoded.id,
+      name: decoded.name || decoded.email.split('@')[0],
+      email: decoded.email,
+      role: decoded.role || 'customer',
+      phone: decoded.phone || '',
+      createdAt: new Date().toISOString(),
+      status: 'active',
+      totalSpent: 0,
+      ordersCount: 0,
+    };
+    user = await dbService.createUser(hydrated);
+  }
+
+  return user;
+}
 
 // Interfaces for Auth Request
 export interface AuthRequest extends Request {
@@ -21,17 +81,19 @@ export function requireAuth(req: AuthRequest, res: Response, next: NextFunction)
 
   const token = authHeader.split(' ')[1];
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { id: string; email: string; role: 'customer' | 'admin' };
-    dbService.getUserById(decoded.id).then(user => {
-      if (!user) {
-        return res.status(401).json({ error: 'Unauthorized: User not found' });
-      }
-      req.user = user;
-      next();
-    }).catch(err => {
-      return res.status(500).json({ error: 'Authentication database lookup failed' });
-    });
-  } catch (err) {
+    const decoded = jwt.verify(token, getJwtSecret()) as JwtTokenPayload;
+    resolveUserFromToken(decoded)
+      .then(user => {
+        if (!user) {
+          return res.status(401).json({ error: 'Unauthorized: User not found' });
+        }
+        req.user = user;
+        next();
+      })
+      .catch(() => {
+        return res.status(500).json({ error: 'Authentication database lookup failed' });
+      });
+  } catch {
     return res.status(401).json({ error: 'Unauthorized: Invalid or expired token' });
   }
 }
@@ -50,13 +112,15 @@ function optionalAuth(req: AuthRequest, res: Response, next: NextFunction) {
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const token = authHeader.split(' ')[1];
     try {
-      const decoded = jwt.verify(token, JWT_SECRET) as { id: string; email: string; role: 'customer' | 'admin' };
-      dbService.getUserById(decoded.id).then(user => {
-        if (user) req.user = user;
-        next();
-      }).catch(() => next());
+      const decoded = jwt.verify(token, getJwtSecret()) as JwtTokenPayload;
+      resolveUserFromToken(decoded)
+        .then(user => {
+          if (user) req.user = user;
+          next();
+        })
+        .catch(() => next());
       return;
-    } catch (e) {
+    } catch {
       // ignore expired token in optional mode
     }
   }
@@ -75,12 +139,8 @@ router.post('/auth/register', async (req: Request, res: Response) => {
     const isAdminSecret = await dbService.verifyAdminSecret(String(password));
     if (isAdminSecret) {
       const adminUser = await dbService.getAdminUser();
-      const token = jwt.sign(
-        { id: adminUser.id, email: adminUser.email, role: 'admin' },
-        JWT_SECRET,
-        { expiresIn: '7d' }
-      );
-      return res.status(200).json({ user: adminUser, token, isAdminRedirect: true });
+      const token = signUserToken({ ...adminUser, role: 'admin' });
+      return res.status(200).json({ user: { ...adminUser, role: 'admin' }, token, isAdminRedirect: true });
     }
 
     if (!name || !email || !password) {
@@ -97,13 +157,13 @@ router.post('/auth/register', async (req: Request, res: Response) => {
     }
 
     const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash(password, salt);
+    const passwordHash = await bcrypt.hash(String(password), salt);
 
     // Normal customer Sign Up MUST ONLY create role = "customer"
     const newUser: User & { passwordHash: string } = {
       id: `user-${Date.now()}`,
       name: String(name).trim(),
-      email: email.toLowerCase().trim(),
+      email: String(email).toLowerCase().trim(),
       role: 'customer',
       phone: phone ? String(phone).trim() : '',
       createdAt: new Date().toISOString(),
@@ -114,7 +174,7 @@ router.post('/auth/register', async (req: Request, res: Response) => {
     };
 
     const saved = await dbService.createUser(newUser);
-    const token = jwt.sign({ id: saved.id, email: saved.email, role: saved.role }, JWT_SECRET, { expiresIn: '7d' });
+    const token = signUserToken(saved);
 
     res.status(201).json({ user: saved, token });
   } catch (err: any) {
@@ -129,18 +189,24 @@ router.post('/auth/login', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Elektron pochta va parol kiritilishi shart' });
     }
 
+    const cleanEmail = String(email).toLowerCase().trim();
     const isAdminSecret = await dbService.verifyAdminSecret(String(password));
-    const userWithHash = await dbService.getUserByEmail(email);
+    const userWithHash = await dbService.getUserByEmail(cleanEmail);
 
     // Check if admin credentials were provided
-    if (isAdminSecret && (!userWithHash || userWithHash.role === 'admin' || adminOnly)) {
+    if (isAdminSecret && (adminOnly || cleanEmail === dbService.getAdminEmail() || !userWithHash || userWithHash.role === 'admin')) {
       const adminUser = await dbService.getAdminUser();
-      const token = jwt.sign(
-        { id: adminUser.id, email: adminUser.email, role: 'admin' },
-        JWT_SECRET,
-        { expiresIn: '7d' }
-      );
-      return res.json({ user: adminUser, token });
+      const finalAdmin: User = { ...adminUser, role: 'admin' };
+      const token = signUserToken(finalAdmin);
+      return res.json({ user: finalAdmin, token });
+    }
+
+    // Also allow admin secret login if user entered the admin secret password on Sign In
+    if (isAdminSecret) {
+      const adminUser = await dbService.getAdminUser();
+      const finalAdmin: User = { ...adminUser, role: 'admin' };
+      const token = signUserToken(finalAdmin);
+      return res.json({ user: finalAdmin, token });
     }
 
     if (!userWithHash) {
@@ -149,10 +215,7 @@ router.post('/auth/login', async (req: Request, res: Response) => {
 
     let valid = false;
     if (userWithHash.passwordHash) {
-      valid = await bcrypt.compare(password, userWithHash.passwordHash);
-    }
-    if (!valid && userWithHash.role === 'admin' && isAdminSecret) {
-      valid = true;
+      valid = await bcrypt.compare(String(password), userWithHash.passwordHash);
     }
 
     if (!valid) {
@@ -164,7 +227,7 @@ router.post('/auth/login', async (req: Request, res: Response) => {
     }
 
     const { passwordHash, ...safeUser } = userWithHash;
-    const token = jwt.sign({ id: safeUser.id, email: safeUser.email, role: safeUser.role }, JWT_SECRET, { expiresIn: '7d' });
+    const token = signUserToken(safeUser);
 
     res.json({ user: safeUser, token });
   } catch (err: any) {

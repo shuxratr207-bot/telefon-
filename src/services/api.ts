@@ -13,7 +13,35 @@ import {
   WishlistItem,
 } from '../types/index.ts';
 
-const API_BASE = '/api';
+function resolveApiBaseUrl(): string {
+  const rawEnvUrl = String(
+    import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || ''
+  ).trim();
+
+  if (!rawEnvUrl) {
+    return '/api';
+  }
+
+  const cleaned = rawEnvUrl.replace(/\/+$/, '');
+
+  // Prevent accidental localhost / 127.0.0.1 API URLs in production builds
+  if (
+    typeof window !== 'undefined' &&
+    window.location.hostname !== 'localhost' &&
+    window.location.hostname !== '127.0.0.1' &&
+    (cleaned.includes('localhost') || cleaned.includes('127.0.0.1'))
+  ) {
+    return '/api';
+  }
+
+  if (cleaned.endsWith('/api')) {
+    return cleaned;
+  }
+
+  return `${cleaned}/api`;
+}
+
+export const API_BASE = resolveApiBaseUrl();
 
 function getSessionId(): string {
   let sessionId = localStorage.getItem('nova_session_id');
@@ -38,14 +66,37 @@ function getAuthHeader(): Record<string, string> {
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const headers = { ...getAuthHeader(), ...(options.headers as Record<string, string>) };
-  const res = await fetch(`${API_BASE}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${normalizedEndpoint}`, {
+      ...options,
+      headers,
+    });
+
+    // If external VITE_API_URL returned 404 HTML page, fallback to same-origin /api
+    const contentType = res.headers.get('content-type') || '';
+    if (res.status === 404 && !contentType.includes('application/json') && API_BASE !== '/api') {
+      res = await fetch(`/api${normalizedEndpoint}`, {
+        ...options,
+        headers,
+      });
+    }
+  } catch (networkErr) {
+    if (API_BASE !== '/api') {
+      res = await fetch(`/api${normalizedEndpoint}`, {
+        ...options,
+        headers,
+      });
+    } else {
+      throw networkErr;
+    }
+  }
 
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(data.error || `Request failed with status ${res.status}`);
+    throw new Error(data.error || `So‘rov xatosi (${res.status})`);
   }
   return data as T;
 }

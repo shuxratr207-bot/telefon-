@@ -1,11 +1,12 @@
-import express from 'express';
 import dotenv from 'dotenv';
+dotenv.config();
+
+import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import apiRouter from './src/server/routes.ts';
 import { connectMongo } from './src/server/db.ts';
-
-dotenv.config();
+import { corsMiddleware } from './src/server/cors.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -13,6 +14,9 @@ const __dirname = path.dirname(__filename);
 async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT || 3000);
+
+  // Production CORS support for Vercel & external frontend domains
+  app.use(corsMiddleware);
 
   // Body parsing
   app.use(express.json({ limit: '10mb' }));
